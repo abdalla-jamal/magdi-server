@@ -1,0 +1,25 @@
+{
+  "title": "Example Survey with Options Field",
+  "description": "This survey demonstrates the new options field for better analytics",
+  "status": "open",
+  "questions": [
+    {
+      "type": "mcq",
+      "questionText": "What is your favorite programming language?",
+      "options": ["JavaScript", "Python", "Java", "C++", "TypeScript"]
+    },
+    {
+      "type": "checkbox",
+      "questionText": "Which technologies have you used?",
+      "options": ["React", "Vue.js", "Angular", "Node.js", "Express", "MongoDB"]
+    },
+    {
+      "type": "rating",
+      "questionText": "Rate your experience with this survey system (1-5)"
+    },
+    {
+      "type": "text",
+      "questionText": "What improvements would you suggest?"
+    }
+  ]
+}

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey Response</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .survey-form {
+            padding: 40px;
+        }
+
+        .question {
+            margin-bottom: 40px;
+            padding: 25px;
+            border: 2px solid #f0f0f0;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .question:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+        }
+
+        .question h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .question-type {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin-bottom: 15px;
+        }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .option {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .option:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .option input[type="radio"],
+        .option input[type="checkbox"] {
+            margin-right: 12px;
+            transform: scale(1.2);
+        }
+
+        .option input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .option input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .rating-options {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .rating-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 60px;
+        }
+
+        .rating-option:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .rating-option input[type="radio"] {
+            margin-bottom: 8px;
+            transform: scale(1.2);
+        }
+
+        .rating-number {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .success-message {
+            display: none;
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .error-message {
+            display: none;
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .required {
+            color: #dc3545;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="survey-title">Loading Survey...</h1>
+            <p id="survey-description"></p>
+        </div>
+
+        <form class="survey-form" id="surveyForm">
+            <div id="questions-container">
+                <!-- Questions will be loaded here -->
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">
+                Submit Survey
+            </button>
+        </form>
+
+        <div class="loading" id="loading">
+            <p>Submitting your response...</p>
+        </div>
+
+        <div class="success-message" id="successMessage">
+            <h3>Thank you!</h3>
+            <p>Your response has been submitted successfully.</p>
+        </div>
+
+        <div class="error-message" id="errorMessage">
+            <h3>Error</h3>
+            <p id="errorText"></p>
+        </div>
+    </div>
+
+    <script>
+        // Get survey ID from URL
+        const urlParts = window.location.pathname.split('/');
+        const surveyId = urlParts[urlParts.length - 2]; // /api/surveys/{id}/respond
+
+        let surveyData = null;
+
+        // Load survey data
+        async function loadSurvey() {
+            try {
+                const response = await fetch(`/api/surveys/${surveyId}/respond`);
+                if (!response.ok) {
+                    throw new Error('Survey not found or not available');
+                }
+                surveyData = await response.json();
+                displaySurvey();
+            } catch (error) {
+                document.getElementById('errorText').textContent = error.message;
+                document.getElementById('errorMessage').style.display = 'block';
+                document.getElementById('survey-title').textContent = 'Survey Not Available';
+            }
+        }
+
+        // Display survey
+        function displaySurvey() {
+            document.getElementById('survey-title').textContent = surveyData.title;
+            document.getElementById('survey-description').textContent = surveyData.description || '';
+
+            const container = document.getElementById('questions-container');
+            container.innerHTML = '';
+
+            surveyData.questions.forEach((question, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question';
+                questionDiv.innerHTML = `
+                    <span class="question-type">${question.type.toUpperCase()}</span>
+                    <h3>${index + 1}. ${question.questionText}</h3>
+                    ${generateQuestionInput(question, index)}
+                `;
+                container.appendChild(questionDiv);
+            });
+        }
+
+        // Generate input based on question type
+        function generateQuestionInput(question, index) {
+            const questionId = question._id;
+            
+            switch (question.type) {
+                case 'mcq':
+                    return `
+                        <div class="options">
+                            ${question.options.map((option, optIndex) => `
+                                <label class="option">
+                                    <input type="radio" name="question_${questionId}" value="${option}" required>
+                                    ${option}
+                                </label>
+                            `).join('')}
+                        </div>
+                    `;
+
+                case 'checkbox':
+                    return `
+                        <div class="options">
+                            ${question.options.map((option, optIndex) => `
+                                <label class="option">
+                                    <input type="checkbox" name="question_${questionId}" value="${option}">
+                                    ${option}
+                                </label>
+                            `).join('')}
+                        </div>
+                    `;
+
+                case 'rating':
+                    return `
+                        <div class="rating-options">
+                            ${[1, 2, 3, 4, 5].map(rating => `
+                                <label class="rating-option">
+                                    <input type="radio" name="question_${questionId}" value="${rating}" required>
+                                    <span class="rating-number">${rating}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    `;
+
+                case 'text':
+                    return `
+                        <div class="option">
+                            <input type="text" name="question_${questionId}" placeholder="Enter your answer..." required>
+                        </div>
+                    `;
+
+                default:
+                    return '<p>Unsupported question type</p>';
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('surveyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const successMessage = document.getElementById('successMessage');
+            const errorMessage = document.getElementById('errorMessage');
+
+            // Hide previous messages
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+
+            // Show loading
+            submitBtn.disabled = true;
+            loading.style.display = 'block';
+
+            try {
+                // Collect form data
+                const formData = new FormData(e.target);
+                const answers = [];
+
+                surveyData.questions.forEach(question => {
+                    const questionId = question._id;
+                    const formFieldName = `question_${questionId}`;
+                    
+                    if (question.type === 'checkbox') {
+                        // Handle multiple selections for checkbox
+                        const selectedOptions = formData.getAll(formFieldName);
+                        if (selectedOptions.length > 0) {
+                            answers.push({
+                                questionId: questionId,
+                                answer: selectedOptions
+                            });
+                        }
+                    } else {
+                        // Handle single selection for other types
+                        const value = formData.get(formFieldName);
+                        if (value) {
+                            answers.push({
+                                questionId: questionId,
+                                answer: value
+                            });
+                        }
+                    }
+                });
+
+                // Submit response
+                const response = await fetch('/api/responses/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        surveyId: surveyId,
+                        answers: answers
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to submit response');
+                }
+
+                // Show success message
+                loading.style.display = 'none';
+                successMessage.style.display = 'block';
+                document.getElementById('surveyForm').style.display = 'none';
+
+            } catch (error) {
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+                document.getElementById('errorText').textContent = error.message;
+                errorMessage.style.display = 'block';
+            }
+        });
+
+        // Load survey when page loads
+        loadSurvey();
+    </script>
+</body>
+</html> 
