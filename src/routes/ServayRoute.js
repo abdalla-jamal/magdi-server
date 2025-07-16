@@ -9,13 +9,14 @@ const {
   updateSurvay,
   deleteSurvey,
 } = require("../controllers/SurveyController.js");
+const superAdminProtect = require('../middleware/superAdminMiddleware.js')
 
 router.post("/create", createSurvey);
 router.get("/all", getAllSurveys);
 router.get("/:id", getSurveyById);
-router.get("/:id/respond", getSurveyForResponse); //added new Public endpoint for survey response
-router.get("/:id/link", getSurveyLink); //added new Get survey link
+router.get("/:id/respond", getSurveyForResponse);
+router.get("/:id/link", getSurveyLink); 
 router.patch("/:id", updateSurvay);
-router.delete("/:id", deleteSurvey);
+router.delete("/:id",superAdminProtect ,deleteSurvey);
 
 module.exports = router;
