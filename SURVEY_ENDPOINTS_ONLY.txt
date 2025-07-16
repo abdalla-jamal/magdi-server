@@ -1,0 +1,14 @@
+/api/surveys/all?title=feedback
+/api/surveys/all?status=open
+/api/surveys/all?from=2024-01-01&to=2024-06-30
+/api/surveys/all?question_questionText=opinion
+/api/surveys/all?question_type=checkbox
+/api/surveys/all?question_options=excellent
+/api/surveys/all?title=survey&status=open&question_type=mcq&from=2024-01-01
+/api/surveys/all?title=feedback
+/api/surveys/all?status=open
+/api/surveys/all?from=2024-01-01&to=2024-06-30
+/api/surveys/all?question_questionText=رأيك
+/api/surveys/all?question_type=checkbox
+/api/surveys/all?question_options=ممتاز
+/api/surveys/all?title=تقييم&status=open&question_type=mcq&from=2024-01-01 

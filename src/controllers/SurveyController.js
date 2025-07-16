@@ -27,8 +27,66 @@ const createSurvey = async (req, res) => {
 
 const getAllSurveys = async (req, res) => {
   try {
-    const survey = await Survey.find().sort({ createdAt: -1 });
-    res.status(200).json(survey);
+    const filter = {};
+    const questionFilters = {};
+    let hasQuestionFilter = false;
+
+    // فلترة الحقول الرئيسية
+    for (const [key, value] of Object.entries(req.query)) {
+      if (key.startsWith('question_')) {
+        hasQuestionFilter = true;
+        const qKey = key.replace('question_', '');
+        if (['questionText', 'type'].includes(qKey)) {
+          questionFilters[qKey] = { $regex: value, $options: 'i' };
+        } else if (['Option', 'options'].includes(qKey)) {
+          questionFilters[qKey] = { $elemMatch: { $regex: value, $options: 'i' } };
+        }
+      } else if (['title', 'description'].includes(key)) {
+        filter[key] = { $regex: value, $options: 'i' };
+      } else if (['status'].includes(key)) {
+        filter[key] = value;
+      } else if (key === 'from' || key === 'to') {
+        filter.createdAt = filter.createdAt || {};
+        if (key === 'from') filter.createdAt.$gte = new Date(value);
+        if (key === 'to') filter.createdAt.$lte = new Date(value);
+      } else if (['createdAt', 'updatedAt'].includes(key)) {
+        filter[key] = new Date(value);
+      }
+    }
+
+    let surveys;
+    if (hasQuestionFilter) {
+      filter.questions = { $elemMatch: questionFilters };
+    }
+
+    surveys = await Survey.find(filter).sort({ createdAt: -1 }).lean();
+
+    // فلترة الأسئلة داخل كل استبيان لو فيه فلتر على الأسئلة
+    if (hasQuestionFilter) {
+      surveys = surveys.map(survey => {
+        const filteredQuestions = survey.questions.filter(q => {
+          let match = true;
+          for (const [qKey, qVal] of Object.entries(questionFilters)) {
+            if (qKey === 'questionText' || qKey === 'type') {
+              if (!q[qKey] || !q[qKey].toLowerCase().includes(qVal.$regex.toLowerCase())) {
+                match = false;
+                break;
+              }
+            } else if (qKey === 'Option' || qKey === 'options') {
+              const arr = q[qKey] || [];
+              if (!arr.some(opt => opt && opt.toLowerCase().includes(qVal.$elemMatch.$regex.toLowerCase()))) {
+                match = false;
+                break;
+              }
+            }
+          }
+          return match;
+        });
+        return { ...survey, questions: filteredQuestions };
+      });
+    }
+
+    res.status(200).json(surveys);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
