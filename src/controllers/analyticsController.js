@@ -27,7 +27,7 @@ const getAnalytics = async (req, res) => {
       });
 
       // أسئلة اختيار متعددة أو اختيار واحد (mcq/checkbox)
-      if ((question.type === 'mcq' || question.type === 'checkbox')) {
+      if ((question.type === 'mcq' || question.type === 'checkbox' || question.type === 'radio')) {
         // دعم كل من Option و options
         const opts = question.Option && Array.isArray(question.Option) && question.Option.length > 0
           ? question.Option
