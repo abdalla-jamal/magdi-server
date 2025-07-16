@@ -23,6 +23,14 @@ const responseSchema = new mongoose.Schema({
     required: true,
     validate: [arr => arr.length > 0, 'Answers array must not be empty']
   },
+  name: {
+    type: String,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true
+  },
   createdAt: {
     type: Date,
     default: Date.now

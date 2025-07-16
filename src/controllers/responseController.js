@@ -3,10 +3,10 @@ const Survey = require('../models/SurveyModel');
 
 const submitResponse = async (req, res) => {
   try {
-    const { surveyId, answers } = req.body;
+    const { surveyId, answers, name, email } = req.body;
 
-    if (!surveyId || !answers || !Array.isArray(answers) || answers.length === 0) {
-      return res.status(400).json({ error: 'surveyId and answers are required' });
+    if (!surveyId || !answers || !Array.isArray(answers) || answers.length === 0 || !name || !email) {
+      return res.status(400).json({ error: 'surveyId, answers, name, and email are required' });
     }
 
     // Check if survey exists and is open
@@ -22,6 +22,8 @@ const submitResponse = async (req, res) => {
     const newResponse = new Response({
       surveyId,
       answers,
+      name,
+      email
     });
 
     await newResponse.save();

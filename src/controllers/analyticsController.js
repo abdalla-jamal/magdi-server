@@ -43,7 +43,7 @@ const getAnalytics = async (req, res) => {
 
         // جمع الإحصائيات الفعلية
         validAnswers.forEach(answer => {
-          if (question.type === 'mcq') {
+          if (question.type === 'mcq' || question.type ==='radio') {
             if (optionStats.hasOwnProperty(answer)) {
               optionStats[answer].count += 1;
             }
@@ -54,7 +54,7 @@ const getAnalytics = async (req, res) => {
               }
             });
           }
-        });
+        } );
 
         // حساب النسبة المئوية
         Object.keys(optionStats).forEach(option => {
