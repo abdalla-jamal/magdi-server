@@ -264,7 +264,7 @@ const exportAnalytics = async (req, res) => {
           question: question.questionText,
           type: question.type,
           totalAnswers: answers.filter(a => a !== null).length,
-          sampleAnswers: answers.filter(a => a !== null).slice(0, 5)
+          sampleAnswers: answers.filter(a => a !== null)
         };
       }
       return { question: question.questionText, type: question.type, stats: {} };
