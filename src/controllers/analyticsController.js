@@ -107,7 +107,7 @@ const getAnalytics = async (req, res) => {
           question: question.questionText,
           type: question.type,
           totalAnswers: validAnswers.length,
-          sampleAnswers: validAnswers.slice(0, 5)
+          sampleAnswers: validAnswers
         };
       }
 
@@ -467,7 +467,7 @@ const getAllSurveysAnalytics = async (req, res) => {
             question: question.questionText,
             type: question.type,
             totalAnswers: validAnswers.length,
-            sampleAnswers: validAnswers.slice(0, 3)
+            sampleAnswers: validAnswers
           };
         }
 
@@ -632,7 +632,7 @@ const exportAllSurveysAnalytics = async (req, res) => {
             question: question.questionText,
             type: question.type,
             totalAnswers: validAnswers.length,
-            sampleAnswers: validAnswers.slice(0, 3)
+            sampleAnswers: validAnswers
           };
         }
 
