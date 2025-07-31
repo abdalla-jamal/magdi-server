@@ -4,6 +4,7 @@ const {
   createSurvey,
   getAllSurveys,
   getSurveyById,
+  checkSurveyHasResponses,
   getSurveyForResponse,
   getSurveyLink,
   updateSurvay,
@@ -13,6 +14,7 @@ const {
 router.post("/create", createSurvey);
 router.get("/all", getAllSurveys);
 router.get("/:id", getSurveyById);
+router.get("/:surveyId/has-responses", checkSurveyHasResponses);
 router.get("/:id/respond", getSurveyForResponse);
 router.get("/:id/link", getSurveyLink); 
 router.patch("/:id", updateSurvay);

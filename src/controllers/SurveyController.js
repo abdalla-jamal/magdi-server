@@ -27,6 +27,16 @@ const createSurvey = async (req, res) => {
 
 const getAllSurveys = async (req, res) => {
   try {
+    const { page = 1, limit = 6 } = req.query;
+    
+    // Convert to numbers and validate
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    
+    if (pageNum < 1 || limitNum < 1) {
+      return res.status(400).json({ error: 'Page and limit must be positive numbers' });
+    }
+    
     const filter = {};
     const questionFilters = {};
     let hasQuestionFilter = false;
@@ -59,7 +69,18 @@ const getAllSurveys = async (req, res) => {
       filter.questions = { $elemMatch: questionFilters };
     }
 
-    surveys = await Survey.find(filter).sort({ createdAt: -1 }).lean();
+    // Calculate skip value for pagination
+    const skip = (pageNum - 1) * limitNum;
+    
+    // Get total count for pagination metadata
+    const totalSurveys = await Survey.countDocuments(filter);
+    const totalPages = Math.ceil(totalSurveys / limitNum);
+
+    surveys = await Survey.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
 
     // فلترة الأسئلة داخل كل استبيان لو فيه فلتر على الأسئلة
     if (hasQuestionFilter) {
@@ -86,7 +107,20 @@ const getAllSurveys = async (req, res) => {
       });
     }
 
-    res.status(200).json(surveys);
+    // Prepare pagination metadata
+    const pagination = {
+      currentPage: pageNum,
+      totalPages,
+      totalSurveys,
+      surveysPerPage: limitNum,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1
+    };
+
+    res.status(200).json({
+      surveys,
+      pagination
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
