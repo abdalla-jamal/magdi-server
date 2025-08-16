@@ -1,10 +1,45 @@
 const Response = require('../models/response_model.js');
 const Survey = require('../models/SurveyModel');
 const mongoose = require('mongoose');
+const multer = require('multer');
+const path = require('path');
+
+// إعداد التخزين للملفات الصوتية
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '../uploads'));
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+const upload = multer({ storage: storage });
 
 const submitResponse = async (req, res) => {
   try {
-    const { surveyId, answers, name, email } = req.body;
+    // إذا كان الطلب من نوع form-data (ملفات وصوت)
+    let answers, surveyId, name, email;
+    if (req.is('multipart/form-data')) {
+      surveyId = req.body.surveyId;
+      name = req.body.name;
+      email = req.body.email;
+      answers = JSON.parse(req.body.answers);
+      // ربط ملفات الصوت بالإجابات
+      if (req.files && req.files.length > 0) {
+        answers = answers.map(ans => {
+          // ابحث عن ملف صوتي باسم voiceAnswer_<questionId>
+          const file = req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`);
+          if (file) {
+            return { ...ans, answer: file.filename };
+          }
+          return ans;
+        });
+      }
+    } else {
+      // إذا كان الطلب JSON عادي
+      ({ surveyId, answers, name, email } = req.body);
+    }
 
     if (!surveyId || !answers || !Array.isArray(answers) || answers.length === 0 || !name || !email) {
       return res.status(400).json({ error: 'surveyId, answers, name, and email are required' });
@@ -15,7 +50,6 @@ const submitResponse = async (req, res) => {
     if (!survey) {
       return res.status(404).json({ error: 'Survey not found' });
     }
-    
     if (survey.status !== 'open') {
       return res.status(400).json({ error: 'Survey is not open for responses' });
     }
@@ -96,5 +130,6 @@ const getResponsesBySurvey = async (req, res) => {
 
 module.exports = {
   getResponsesBySurvey,
-  submitResponse
+  submitResponse,
+  upload
 };

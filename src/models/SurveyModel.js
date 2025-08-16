@@ -2,9 +2,10 @@ const mongoose = require("mongoose");
 
 const questionSchema = new mongoose.Schema({
   _id: { type: mongoose.Schema.Types.ObjectId, auto: true },  
+  // type: نوع السؤال (text, mcq, checkbox, rating, radio, voice)
   type: {
     type: String,
-    enum: ["text", "mcq", "checkbox", "rating", "radio"],
+    enum: ["text", "mcq", "checkbox", "rating", "radio", "voice"],
     required: true,
   },
   questionText: {
