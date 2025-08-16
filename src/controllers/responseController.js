@@ -3,11 +3,17 @@ const Survey = require('../models/SurveyModel');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 // إعداد التخزين للملفات الصوتية
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../uploads'));
+    const uploadsDir = path.join(__dirname, '../../uploads');
+    // Ensure uploads directory exists
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -18,19 +24,37 @@ const upload = multer({ storage: storage });
 
 const submitResponse = async (req, res) => {
   try {
+    console.log("Request received:", req.method, req.path);
+    console.log("Content-Type:", req.headers['content-type']);
+    
     // إذا كان الطلب من نوع form-data (ملفات وصوت)
     let answers, surveyId, name, email;
     if (req.is('multipart/form-data')) {
+      console.log("Processing multipart form data");
+      console.log("Body:", req.body);
+      console.log("Files:", req.files ? req.files.length : "No files");
+      
       surveyId = req.body.surveyId;
       name = req.body.name;
       email = req.body.email;
-      answers = JSON.parse(req.body.answers);
+      
+      try {
+        answers = JSON.parse(req.body.answers || '[]');
+        console.log("Parsed answers:", answers);
+      } catch (parseError) {
+        console.error("Error parsing answers JSON:", parseError);
+        return res.status(400).json({ error: 'Invalid answers JSON format', details: parseError.message });
+      }
+      
       // ربط ملفات الصوت بالإجابات
       if (req.files && req.files.length > 0) {
+        console.log("Processing files:", req.files.map(f => f.fieldname));
+        
         answers = answers.map(ans => {
           // ابحث عن ملف صوتي باسم voiceAnswer_<questionId>
           const file = req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`);
           if (file) {
+            console.log(`Found file for question ${ans.questionId}:`, file.filename);
             // حتى لو answer غير موجود أو فارغ، احفظ اسم الملف
             return { ...ans, answer: file.filename };
           }
@@ -40,11 +64,30 @@ const submitResponse = async (req, res) => {
       }
     } else {
       // إذا كان الطلب JSON عادي
+      console.log("Processing JSON request");
       ({ surveyId, answers, name, email } = req.body);
     }
 
-    if (!surveyId || !answers || !Array.isArray(answers) || answers.length === 0 || !name || !email) {
-      return res.status(400).json({ error: 'surveyId, answers, name, and email are required' });
+    // Validate required fields
+    if (!surveyId) {
+      return res.status(400).json({ error: 'surveyId is required' });
+    }
+    
+    if (!answers || !Array.isArray(answers)) {
+      return res.status(400).json({ error: 'answers must be an array' });
+    }
+    
+    if (answers.length === 0) {
+      return res.status(400).json({ error: 'answers array must not be empty' });
+    }
+    
+    if (!name || !email) {
+      return res.status(400).json({ error: 'name and email are required' });
+    }
+
+    // Validate surveyId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(surveyId)) {
+      return res.status(400).json({ error: 'Invalid surveyId format' });
     }
 
     // Check if survey exists and is open
@@ -57,13 +100,21 @@ const submitResponse = async (req, res) => {
     }
 
     // أمان إضافي: تأكد أن كل إجابة فيها answer على الأقل ""
-    answers = answers.map(ans => ({
-      questionId: ans.questionId,
-      answer: typeof ans.answer === 'undefined' ? '' : ans.answer
-    }));
+    answers = answers.map(ans => {
+      // Ensure questionId is a valid ObjectId
+      if (!ans.questionId || !mongoose.Types.ObjectId.isValid(ans.questionId)) {
+        console.error(`Invalid questionId: ${ans.questionId}`);
+        throw new Error(`Invalid questionId format: ${ans.questionId}`);
+      }
+      
+      return {
+        questionId: ans.questionId,
+        answer: typeof ans.answer === 'undefined' ? '' : ans.answer
+      };
+    });
 
     // Debug: Print answers before saving
-    console.log("answers before save:", answers);
+    console.log("answers before save:", JSON.stringify(answers, null, 2));
 
     const newResponse = new Response({
       surveyId,
@@ -75,8 +126,13 @@ const submitResponse = async (req, res) => {
     await newResponse.save();
     res.status(201).json({ message: 'Response submitted successfully', response: newResponse });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to submit response' });
+    console.error("Error in submitResponse:", error.message);
+    console.error("Stack trace:", error.stack);
+    res.status(500).json({ 
+      error: 'Failed to submit response', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
