@@ -6,13 +6,34 @@ const path = require('path');
 const fs = require('fs');
 
 // إعداد التخزين للملفات الصوتية
+console.log('Current directory:', __dirname);
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadsDir = path.join(__dirname, '../../uploads');
-    // Ensure uploads directory exists
+    // استخدم مسار مطلق بدلاً من مسار نسبي
+    const uploadsDir = path.resolve(__dirname, '../../uploads');
+    console.log('Full absolute path for uploads:', uploadsDir);
+    
+    // تأكد من وجود المجلد
     if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+      console.log('Creating uploads directory because it does not exist');
+      try {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+        console.log('Successfully created uploads directory');
+      } catch (err) {
+        console.error('Error creating uploads directory:', err);
+      }
+    } else {
+      console.log('Uploads directory already exists');
     }
+    
+    // تحقق من صلاحيات الكتابة
+    try {
+      fs.accessSync(uploadsDir, fs.constants.W_OK);
+      console.log('Write permissions OK for uploads directory');
+    } catch (err) {
+      console.error('No write permissions for uploads directory:', err);
+    }
+    
     console.log('Saving file to:', uploadsDir);
     cb(null, uploadsDir);
   },
@@ -24,6 +45,28 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage: storage });
+
+// التحقق من مجلد uploads عند بدء السيرفر
+const uploadsPath = path.resolve(__dirname, '../../uploads');
+console.log('Checking uploads directory at startup:', uploadsPath);
+if (!fs.existsSync(uploadsPath)) {
+  console.log('Creating uploads directory at startup');
+  try {
+    fs.mkdirSync(uploadsPath, { recursive: true });
+    console.log('Successfully created uploads directory at startup');
+  } catch (err) {
+    console.error('Error creating uploads directory at startup:', err);
+  }
+} else {
+  console.log('Uploads directory exists at startup');
+  // طباعة محتويات المجلد
+  try {
+    const files = fs.readdirSync(uploadsPath);
+    console.log('Files in uploads directory:', files);
+  } catch (err) {
+    console.error('Error reading uploads directory:', err);
+  }
+}
 
 const submitResponse = async (req, res) => {
   try {
