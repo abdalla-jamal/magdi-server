@@ -31,8 +31,10 @@ const submitResponse = async (req, res) => {
           // ابحث عن ملف صوتي باسم voiceAnswer_<questionId>
           const file = req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`);
           if (file) {
+            // حتى لو answer غير موجود أو فارغ، احفظ اسم الملف
             return { ...ans, answer: file.filename };
           }
+          // لو الإجابة نصية أو عادية
           return ans;
         });
       }
