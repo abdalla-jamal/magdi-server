@@ -24,6 +24,9 @@ app.use(express.json());
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Serve survey response page
 app.get('/api/surveys/:id/respond', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/survey-response.html'));
