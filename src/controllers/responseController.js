@@ -62,6 +62,9 @@ const submitResponse = async (req, res) => {
       answer: typeof ans.answer === 'undefined' ? '' : ans.answer
     }));
 
+    // Debug: Print answers before saving
+    console.log("answers before save:", answers);
+
     const newResponse = new Response({
       surveyId,
       answers,
