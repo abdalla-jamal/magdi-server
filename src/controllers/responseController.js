@@ -13,11 +13,14 @@ const storage = multer.diskStorage({
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
+    console.log('Saving file to:', uploadsDir);
     cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
+    const filename = uniqueSuffix + '-' + file.originalname;
+    console.log('Generated filename:', filename);
+    cb(null, filename);
   }
 });
 const upload = multer({ storage: storage });
@@ -55,6 +58,14 @@ const submitResponse = async (req, res) => {
           const file = req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`);
           if (file) {
             console.log(`Found file for question ${ans.questionId}:`, file.filename);
+            console.log(`File path: ${path.join(__dirname, '../../uploads', file.filename)}`);
+            // تأكد من وجود الملف
+            const filePath = path.join(__dirname, '../../uploads', file.filename);
+            if (fs.existsSync(filePath)) {
+              console.log(`File exists at: ${filePath}`);
+            } else {
+              console.log(`WARNING: File does not exist at: ${filePath}`);
+            }
             // حتى لو answer غير موجود أو فارغ، احفظ اسم الملف
             return { ...ans, answer: file.filename };
           }
