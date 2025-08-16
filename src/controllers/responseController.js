@@ -2,70 +2,45 @@ const Response = require('../models/response_model.js');
 const Survey = require('../models/SurveyModel');
 const mongoose = require('mongoose');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const dotenv = require('dotenv');
 
-// إعداد التخزين للملفات الصوتية
-console.log('Current directory:', __dirname);
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    // استخدم مسار مطلق بدلاً من مسار نسبي
-    const uploadsDir = path.resolve(__dirname, '../../uploads');
-    console.log('Full absolute path for uploads:', uploadsDir);
-    
-    // تأكد من وجود المجلد
-    if (!fs.existsSync(uploadsDir)) {
-      console.log('Creating uploads directory because it does not exist');
-      try {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-        console.log('Successfully created uploads directory');
-      } catch (err) {
-        console.error('Error creating uploads directory:', err);
-      }
-    } else {
-      console.log('Uploads directory already exists');
-    }
-    
-    // تحقق من صلاحيات الكتابة
-    try {
-      fs.accessSync(uploadsDir, fs.constants.W_OK);
-      console.log('Write permissions OK for uploads directory');
-    } catch (err) {
-      console.error('No write permissions for uploads directory:', err);
-    }
-    
-    console.log('Saving file to:', uploadsDir);
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const filename = uniqueSuffix + '-' + file.originalname;
-    console.log('Generated filename:', filename);
-    cb(null, filename);
-  }
+// Load environment variables
+dotenv.config();
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'your_cloud_name',
+  api_key: process.env.CLOUDINARY_API_KEY || 'your_api_key',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'your_api_secret',
 });
+
+// Setup Cloudinary storage for audio files
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'survey_audio',
+    resource_type: 'auto', // Automatically detect file type
+    format: 'webm', // For audio files from browser recording
+    public_id: (req, file) => `audio_${Date.now()}_${Math.round(Math.random() * 1E9)}`,
+  },
+});
+
 const upload = multer({ storage: storage });
 
-// التحقق من مجلد uploads عند بدء السيرفر
-const uploadsPath = path.resolve(__dirname, '../../uploads');
-console.log('Checking uploads directory at startup:', uploadsPath);
-if (!fs.existsSync(uploadsPath)) {
-  console.log('Creating uploads directory at startup');
-  try {
-    fs.mkdirSync(uploadsPath, { recursive: true });
-    console.log('Successfully created uploads directory at startup');
-  } catch (err) {
-    console.error('Error creating uploads directory at startup:', err);
-  }
-} else {
-  console.log('Uploads directory exists at startup');
-  // طباعة محتويات المجلد
-  try {
-    const files = fs.readdirSync(uploadsPath);
-    console.log('Files in uploads directory:', files);
-  } catch (err) {
-    console.error('Error reading uploads directory:', err);
-  }
+// التحقق من اتصال Cloudinary عند بدء السيرفر
+console.log('Checking Cloudinary configuration at startup');
+try {
+  cloudinary.api.ping((error, result) => {
+    if (error) {
+      console.error('Cloudinary connection failed:', error);
+    } else {
+      console.log('Cloudinary connection successful:', result);
+    }
+  });
+} catch (err) {
+  console.error('Error checking Cloudinary connection:', err);
 }
 
 const submitResponse = async (req, res) => {
@@ -100,17 +75,14 @@ const submitResponse = async (req, res) => {
           // ابحث عن ملف صوتي باسم voiceAnswer_<questionId>
           const file = req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`);
           if (file) {
-            console.log(`Found file for question ${ans.questionId}:`, file.filename);
-            console.log(`File path: ${path.join(__dirname, '../../uploads', file.filename)}`);
-            // تأكد من وجود الملف
-            const filePath = path.join(__dirname, '../../uploads', file.filename);
-            if (fs.existsSync(filePath)) {
-              console.log(`File exists at: ${filePath}`);
-            } else {
-              console.log(`WARNING: File does not exist at: ${filePath}`);
-            }
-            // حتى لو answer غير موجود أو فارغ، احفظ اسم الملف
-            return { ...ans, answer: file.filename };
+            console.log(`Found file for question ${ans.questionId}:`, file.path);
+            
+            // استخدم رابط Cloudinary المرجعي للملف
+            const cloudinaryUrl = file.path;
+            console.log(`Cloudinary URL: ${cloudinaryUrl}`);
+            
+            // حتى لو answer غير موجود أو فارغ، احفظ رابط Cloudinary
+            return { ...ans, answer: cloudinaryUrl };
           }
           // لو الإجابة نصية أو عادية
           return ans;
