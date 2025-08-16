@@ -56,6 +56,12 @@ const submitResponse = async (req, res) => {
       return res.status(400).json({ error: 'Survey is not open for responses' });
     }
 
+    // أمان إضافي: تأكد أن كل إجابة فيها answer على الأقل ""
+    answers = answers.map(ans => ({
+      questionId: ans.questionId,
+      answer: typeof ans.answer === 'undefined' ? '' : ans.answer
+    }));
+
     const newResponse = new Response({
       surveyId,
       answers,
