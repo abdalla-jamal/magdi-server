@@ -9,6 +9,10 @@ const answerSchema = new mongoose.Schema({
   answer: {
     type: mongoose.Schema.Types.Mixed, //  يقبل String أو Array أو Number
     required: true
+  },
+  reason: {
+    type: String,
+    required: false
   }
 }, { _id: false });
 
@@ -25,11 +29,11 @@ const responseSchema = new mongoose.Schema({
   },
   name: {
     type: String,
-    required: true
+    required: false
   },
   email: {
     type: String,
-    required: true
+    required: false
   },
   createdAt: {
     type: Date,

@@ -125,6 +125,25 @@ const submitResponse = async (req, res) => {
       return res.status(400).json({ error: 'Survey is not open for responses' });
     }
 
+    // Require name and email only if category is 'staff'
+    if (survey.category === 'staff') {
+      if (!name || !email) {
+        return res.status(400).json({ error: 'name and email are required for staff surveys' });
+      }
+    }
+
+    // Validate reasons for answers if required by question
+    const questionMap = {};
+    survey.questions.forEach(q => { questionMap[q._id.toString()] = q; });
+    for (const ans of answers) {
+      const q = questionMap[ans.questionId];
+      if (q && q.requireReason && (q.type === 'radio' || q.type === 'checkbox')) {
+        if (!ans.reason || typeof ans.reason !== 'string' || ans.reason.trim() === '') {
+          return res.status(400).json({ error: `Reason is required for question: ${q.questionText}` });
+        }
+      }
+    }
+
     // أمان إضافي: تأكد أن كل إجابة فيها answer على الأقل ""
     answers = answers.map(ans => {
       // Ensure questionId is a valid ObjectId
@@ -135,7 +154,8 @@ const submitResponse = async (req, res) => {
       
       return {
         questionId: ans.questionId,
-        answer: typeof ans.answer === 'undefined' ? '' : ans.answer
+        answer: typeof ans.answer === 'undefined' ? '' : ans.answer,
+        reason: ans.reason || undefined
       };
     });
 

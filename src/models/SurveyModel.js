@@ -14,6 +14,10 @@ const questionSchema = new mongoose.Schema({
   },
   Option: [String],
   options: [String],
+  requireReason: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const surveySchema = new mongoose.Schema(
@@ -31,6 +35,11 @@ const surveySchema = new mongoose.Schema(
       default: "open",
     },
     questions: [questionSchema],
+    category: {
+      type: String,
+      enum: ["staff", "other"],
+      required: true,
+    },
   },
   { timestamps: true }
 );
