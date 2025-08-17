@@ -87,22 +87,23 @@ const submitResponse = async (req, res) => {
       }
       
       // ربط ملفات الصوت بالإجابات
-      if (req.files && req.files.length > 0) {
-        answers = answers.map(ans => {
-          // ابحث عن ملف صوتي باسم voiceAnswer_<questionId>
-          const file = req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`);
-          if (file && file.path) {
-            // استخدم رابط Cloudinary المرجعي للملف
-            return { ...ans, answer: file.path };
-          }
-          return ans;
-        });
-      }
+      answers = answers.map(ans => {
+        const file = req.files ? req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`) : null;
+        if (file && file.path) {
+          return { ...ans, answer: file.path };
+        }
+        // إذا الإجابة نصية أو عادية
+        return ans;
+      });
 
-      // Ensure every answer has a non-empty answer (text or file)
+      // بدلاً من رفض الإجابات الفاضية، احفظها إذا فيها رابط ملف
       const invalidAnswers = answers.filter(ans => !ans.answer || ans.answer === "");
       if (invalidAnswers.length > 0) {
-        return res.status(400).json({ error: "All answers must have a value (text or file URL)." });
+        // تحقق إذا فيه ملف صوت مرتبط بالإجابة
+        const hasVoiceFile = invalidAnswers.some(ans => req.files && req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`));
+        if (!hasVoiceFile) {
+          return res.status(400).json({ error: "All answers must have a value (text or file URL)." });
+        }
       }
 
       // Debug: log final answers array
