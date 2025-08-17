@@ -47,23 +47,42 @@ const submitResponse = async (req, res) => {
   try {
     console.log("Request received:", req.method, req.path);
     console.log("Content-Type:", req.headers['content-type']);
+    console.log("Request body keys:", req.body ? Object.keys(req.body) : "No body");
     
     // إذا كان الطلب من نوع form-data (ملفات وصوت)
     let answers, surveyId, name, email;
     if (req.is('multipart/form-data')) {
       console.log("Processing multipart form data");
       console.log("Body:", req.body);
-      console.log("Files:", req.files ? req.files.length : "No files");
+      console.log("Files:", req.files ? `${req.files.length} files received` : "No files");
+      
+      if (req.files) {
+        req.files.forEach((file, index) => {
+          console.log(`File ${index + 1}:`, {
+            fieldname: file.fieldname,
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size,
+            path: file.path || 'No path'
+          });
+        });
+      }
       
       surveyId = req.body.surveyId;
-      name = req.body.name;
-      email = req.body.email;
+      name = req.body.name || '';
+      email = req.body.email || '';
+      
+      // Verify we have the answers field
+      if (!req.body.answers) {
+        console.error("Missing answers field in request body");
+        return res.status(400).json({ error: 'Missing answers field in request body' });
+      }
       
       try {
         answers = JSON.parse(req.body.answers || '[]');
         console.log("Parsed answers:", answers);
       } catch (parseError) {
-        console.error("Error parsing answers JSON:", parseError);
+        console.error("Error parsing answers JSON:", parseError, "Raw answers:", req.body.answers);
         return res.status(400).json({ error: 'Invalid answers JSON format', details: parseError.message });
       }
       
@@ -171,9 +190,30 @@ const submitResponse = async (req, res) => {
 
     await newResponse.save();
     res.status(201).json({ message: 'Response submitted successfully', response: newResponse });
-  } catch (error) {
+      } catch (error) {
     console.error("Error in submitResponse:", error.message);
     console.error("Stack trace:", error.stack);
+    
+    // Check for specific Cloudinary errors
+    if (error.message && error.message.includes('Cloudinary')) {
+      console.error("Cloudinary error detected");
+      return res.status(500).json({ 
+        error: 'Failed to upload voice recording to cloud storage', 
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+    
+    // Check for file size errors
+    if (error.message && error.message.includes('size')) {
+      console.error("File size error detected");
+      return res.status(413).json({ 
+        error: 'Voice recording file too large', 
+        details: error.message
+      });
+    }
+    
+    // General error handling
     res.status(500).json({ 
       error: 'Failed to submit response', 
       details: error.message,
