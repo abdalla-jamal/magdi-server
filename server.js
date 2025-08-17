@@ -3,10 +3,11 @@ const dotenv = require("dotenv");
 const connectDB = require("./src/config/database");
 const cors = require("cors");
 const path = require("path");
-const surveyRoutes =require('./src/routes/ServayRoute.js')
-const responseRoutes = require('./src/routes/responseRoutes.js') ;
+const surveyRoutes = require('./src/routes/ServayRoute.js');
+const responseRoutes = require('./src/routes/responseRoutes.js');
 const adminRoutes = require('./src/routes/adminRoutes.js');
 const analyticsRoutes = require('./src/routes/analyticsRoutes.js');
+const voiceRoutes = require('./src/routes/voiceRoutes.js');
 dotenv.config();
 connectDB();
 const app = express();
@@ -40,7 +41,11 @@ app.use('/api/responses', responseRoutes);
 
 // admin routes
 app.use('/api/admin', adminRoutes);
+
 // analysis Route
-app.use('/api/analytics', analyticsRoutes); 
+app.use('/api/analytics', analyticsRoutes);
+
+// voice routes
+app.use('/api/voices', voiceRoutes); 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

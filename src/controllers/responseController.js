@@ -11,23 +11,21 @@ dotenv.config();
 
 // Configure Cloudinary
 cloudinary.config({
-  cloud_name: 'demo',
-  api_key: '123456789012345',
-  api_secret: 'abcdefghijklmnopqrstuvwxyz12',
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo',
+  api_key: process.env.CLOUDINARY_API_KEY || '123456789012345',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'abcdefghijklmnopqrstuvwxyz12',
 });
 
-// Log Cloudinary configuration
-console.log('Cloudinary configuration:', {
-  cloud_name: 'demo',
-  api_key: '123456789012345 (masked)',
-  api_secret: '******** (masked)',
+// Setup Cloudinary storage for audio files
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'survey_audio',
+    resource_type: 'video', // Important: Cloudinary requires audio to be uploaded as "video"
+    format: 'auto', // Let Cloudinary handle the format conversion
+    public_id: (req, file) => `audio_${Date.now()}_${Math.round(Math.random() * 1E9)}`,
+  },
 });
-
-// No local fallback storage - using Cloudinary only
-
-// Use direct upload without CloudinaryStorage
-const storage = multer.memoryStorage();
-console.log('Using memory storage for file uploads');
 
 const upload = multer({ storage: storage });
 
@@ -45,6 +43,10 @@ try {
   console.error('Error checking Cloudinary connection:', err);
 }
 
+/**
+ * Submit a survey response
+ * Handles both regular form submissions and multipart form data with voice recordings
+ */
 const submitResponse = async (req, res) => {
   try {
     console.log("Request received:", req.method, req.path);
@@ -90,56 +92,29 @@ const submitResponse = async (req, res) => {
       
       // ربط ملفات الصوت بالإجابات
       if (req.files && req.files.length > 0) {
-        console.log('Processing files:', req.files.map(f => ({ fieldname: f.fieldname, originalname: f.originalname })));
-        
-        // Process each file and upload to Cloudinary manually
-        const uploadPromises = req.files.map(async (file) => {
-          try {
-            // Extract questionId from fieldname (voiceAnswer_XXXX)
-            const questionId = file.fieldname.replace('voiceAnswer_', '');
-            
-            // Create a placeholder URL for now
-            const audioUrl = `https://res.cloudinary.com/demo/video/upload/sample_${Date.now()}.mp4`;
-            console.log(`Created placeholder URL for question ${questionId}:`, audioUrl);
-            
-            // Find and update the corresponding answer
-            const answerIndex = answers.findIndex(a => a.questionId === questionId);
-            if (answerIndex !== -1) {
-              answers[answerIndex] = {
-                ...answers[answerIndex],
-                answer: audioUrl,
-                hasVoiceFile: true
-              };
-              console.log(`Updated answer for question ${questionId} with URL`);
-            }
-            
-            return { questionId, success: true };
-          } catch (error) {
-            console.error(`Error processing file ${file.fieldname}:`, error);
-            return { questionId: file.fieldname.replace('voiceAnswer_', ''), success: false, error };
-          }
-        });
-        
-        // Wait for all uploads to complete
-        await Promise.all(uploadPromises);
-        console.log('All files processed');
-        
-        // Ensure no empty answers
         answers = answers.map(ans => {
-          if (!ans.answer || ans.answer === "") {
-            return { ...ans, answer: "No response provided" };
+          const file = req.files ? req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`) : null;
+          if (file && file.path) {
+            console.log(`Found voice file for question ${ans.questionId}:`, file.path);
+            return { ...ans, answer: file.path, hasVoiceFile: true };
           }
+          console.log(`No voice file for question ${ans.questionId}, keeping original answer:`, ans.answer);
           return ans;
         });
       }
-      
-      // Make sure all answers have a non-empty value
-      answers = answers.map(ans => {
-        if (!ans.answer || ans.answer === "") {
-          return { ...ans, answer: "No response provided" };
-        }
-        return ans;
+
+      // Check for invalid answers, but allow empty answers if they have voice files
+      const invalidAnswers = answers.filter(ans => {
+        const hasVoiceFile = req.files && req.files.some(f => f.fieldname === `voiceAnswer_${ans.questionId}`);
+        return (!ans.answer || ans.answer === "") && !hasVoiceFile;
       });
+      if (invalidAnswers.length > 0) {
+        // تحقق إذا فيه ملف صوت مرتبط بالإجابة
+        const hasVoiceFile = invalidAnswers.some(ans => req.files && req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`));
+        if (!hasVoiceFile) {
+          return res.status(400).json({ error: "All answers must have a value (text or file URL)." });
+        }
+      }
 
       // Debug: log final answers array
       console.log("Final answers array before saving:", answers);
@@ -210,9 +185,15 @@ const submitResponse = async (req, res) => {
       return {
         questionId: ans.questionId,
         answer: typeof ans.answer === 'undefined' || ans.answer === '' ? 'No response provided' : ans.answer,
-        reason: ans.reason || undefined
+        reason: ans.reason || undefined,
+        hasVoiceFile: ans.hasVoiceFile || false
       };
     });
+
+    // Debug logs before saving
+    console.log('answers before save:', answers);
+    console.log('req.files:', req.files);
+    console.log('surveyId:', surveyId, 'name:', name, 'email:', email);
 
     // Debug: Print answers before saving
     console.log("answers before save:", JSON.stringify(answers, null, 2));
@@ -226,7 +207,7 @@ const submitResponse = async (req, res) => {
 
     await newResponse.save();
     res.status(201).json({ message: 'Response submitted successfully', response: newResponse });
-      } catch (error) {
+  } catch (error) {
     console.error("Error in submitResponse:", error.message);
     console.error("Stack trace:", error.stack);
     
@@ -258,6 +239,9 @@ const submitResponse = async (req, res) => {
   }
 };
 
+/**
+ * Get responses for a specific survey
+ */
 const getResponsesBySurvey = async (req, res) => {
   try {
     const { surveyId } = req.params;
@@ -317,8 +301,60 @@ const getResponsesBySurvey = async (req, res) => {
   }
 };
 
+/**
+ * Upload a voice recording for a survey question
+ * This is a dedicated endpoint for voice uploads
+ */
+const uploadVoiceResponse = async (req, res) => {
+  try {
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ error: 'No voice file uploaded' });
+    }
+
+    console.log("Voice file received:", {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: req.file.path || 'No path'
+    });
+
+    // Extract questionId from the fieldname (format: voiceAnswer_QUESTION_ID)
+    const questionIdMatch = req.file.fieldname.match(/voiceAnswer_([a-f0-9]+)/i);
+    if (!questionIdMatch || !questionIdMatch[1]) {
+      return res.status(400).json({ error: 'Invalid fieldname format. Expected voiceAnswer_QUESTION_ID' });
+    }
+
+    const questionId = questionIdMatch[1];
+    
+    // Validate questionId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(questionId)) {
+      return res.status(400).json({ error: 'Invalid questionId format' });
+    }
+
+    // Return the Cloudinary URL and question ID
+    res.status(200).json({
+      success: true,
+      data: {
+        questionId,
+        voiceUrl: req.file.path,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      }
+    });
+  } catch (error) {
+    console.error("Error uploading voice:", error);
+    res.status(500).json({ 
+      error: 'Failed to upload voice recording',
+      details: error.message
+    });
+  }
+};
+
 module.exports = {
   getResponsesBySurvey,
   submitResponse,
+  uploadVoiceResponse,
   upload
 };
