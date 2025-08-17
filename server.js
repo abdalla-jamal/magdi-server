@@ -1,12 +1,12 @@
 const express = require("express");
 const dotenv = require("dotenv");
-const connectDB = require("./config/database");
+const connectDB = require("./src/config/database");
 const cors = require("cors");
 const path = require("path");
-const surveyRoutes =require('./routes/ServayRoute')
-const responseRoutes = require('./routes/responseRoutes.js') ;
-const adminRoutes = require('./routes/adminRoutes');
-const analyticsRoutes = require('./routes/analyticsRoutes');
+const surveyRoutes =require('./src/routes/ServayRoute.js')
+const responseRoutes = require('./src/routes/responseRoutes.js') ;
+const adminRoutes = require('./src/routes/adminRoutes.js');
+const analyticsRoutes = require('./src/routes/analyticsRoutes.js');
 dotenv.config();
 connectDB();
 const app = express();
