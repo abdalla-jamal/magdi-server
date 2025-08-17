@@ -88,25 +88,25 @@ const submitResponse = async (req, res) => {
       
       // ربط ملفات الصوت بالإجابات
       if (req.files && req.files.length > 0) {
-        console.log("Processing files:", req.files.map(f => f.fieldname));
-        
         answers = answers.map(ans => {
           // ابحث عن ملف صوتي باسم voiceAnswer_<questionId>
           const file = req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`);
-          if (file) {
-            console.log(`Found file for question ${ans.questionId}:`, file.path);
-            
+          if (file && file.path) {
             // استخدم رابط Cloudinary المرجعي للملف
-            const cloudinaryUrl = file.path;
-            console.log(`Cloudinary URL: ${cloudinaryUrl}`);
-            
-            // حتى لو answer غير موجود أو فارغ، احفظ رابط Cloudinary
-            return { ...ans, answer: cloudinaryUrl };
+            return { ...ans, answer: file.path };
           }
-          // لو الإجابة نصية أو عادية
           return ans;
         });
       }
+
+      // Ensure every answer has a non-empty answer (text or file)
+      const invalidAnswers = answers.filter(ans => !ans.answer || ans.answer === "");
+      if (invalidAnswers.length > 0) {
+        return res.status(400).json({ error: "All answers must have a value (text or file URL)." });
+      }
+
+      // Debug: log final answers array
+      console.log("Final answers array before saving:", answers);
     } else {
       // إذا كان الطلب JSON عادي
       console.log("Processing JSON request");
