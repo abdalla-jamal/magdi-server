@@ -22,7 +22,7 @@ const storage = new CloudinaryStorage({
   params: {
     folder: 'survey_audio',
     resource_type: 'auto', // Automatically detect file type
-    format: 'webm', // For audio files from browser recording
+    format: 'auto', // Let Cloudinary handle the format conversion
     public_id: (req, file) => `audio_${Date.now()}_${Math.round(Math.random() * 1E9)}`,
   },
 });
@@ -90,14 +90,18 @@ const submitResponse = async (req, res) => {
       answers = answers.map(ans => {
         const file = req.files ? req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`) : null;
         if (file && file.path) {
-          return { ...ans, answer: file.path };
+          console.log(`Found voice file for question ${ans.questionId}:`, file.path);
+          return { ...ans, answer: file.path, hasFiles: true };
         }
-        // إذا الإجابة نصية أو عادية
+        console.log(`No voice file for question ${ans.questionId}, keeping original answer:`, ans.answer);
         return ans;
       });
 
-      // بدلاً من رفض الإجابات الفاضية، احفظها إذا فيها رابط ملف
-      const invalidAnswers = answers.filter(ans => !ans.answer || ans.answer === "");
+      // Check for invalid answers, but allow empty answers if they have voice files
+      const invalidAnswers = answers.filter(ans => {
+        const hasVoiceFile = req.files && req.files.some(f => f.fieldname === `voiceAnswer_${ans.questionId}`);
+        return (!ans.answer || ans.answer === "") && !hasVoiceFile;
+      });
       if (invalidAnswers.length > 0) {
         // تحقق إذا فيه ملف صوت مرتبط بالإجابة
         const hasVoiceFile = invalidAnswers.some(ans => req.files && req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`));
