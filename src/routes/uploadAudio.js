@@ -1,41 +1,32 @@
 const express = require("express");
-const multer = require("multer");
-const cloudinary = require("cloudinary").v2;
+const { upload, cloudinary } = require("../config/cloudinaryConfig");
 const fs = require("fs");
 
 const router = express.Router();
-const upload = multer({ dest: "uploads/" });
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-// POST /api/upload-audio
+// POST /api/responses/uploadVoice
 router.post("/uploadVoice", upload.single("voiceAnswer"), async (req, res) => {
   console.log("POST /api/responses/uploadVoice called");
   try {
     console.log("Received file:", req.file);
-    if (!req.file) return res.status(400).json({ error: "No audio file uploaded" });
+    if (!req.file) {
+      return res.status(400).json({ error: "No audio file uploaded" });
+    }
 
-    // Upload to Cloudinary
-    console.log("Uploading to Cloudinary...");
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      resource_type: "video",
-      folder: "audio_recordings",
-      format: "webm"
+    // File is automatically uploaded to Cloudinary by the CloudinaryStorage
+    // Just return the URL from the uploaded file
+    console.log("File uploaded successfully to Cloudinary");
+    
+    res.json({ 
+      secure_url: req.file.path, // CloudinaryStorage provides the URL in path
+      public_id: req.file.filename,
+      questionId: req.body.questionId
     });
-    console.log("Cloudinary upload result:", result);
-
-    // Delete temp file
-    fs.unlinkSync(req.file.path);
-
-    // Return Cloudinary URL
-    res.json({ secure_url: result.secure_url });
   } catch (err) {
     console.error("Upload error:", err);
-    res.status(500).json({ error: err.message });
+    // Send more detailed error message in development
+    const errorMessage = process.env.NODE_ENV === 'development' ? err.message : 'Upload failed';
+    res.status(500).json({ error: errorMessage });
   }
 });
 
