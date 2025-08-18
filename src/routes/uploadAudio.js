@@ -15,14 +15,17 @@ cloudinary.config({
 // POST /api/upload-audio
 router.post("/upload-audio", upload.single("audio"), async (req, res) => {
   try {
+    console.log("Received file:", req.file);
     if (!req.file) return res.status(400).json({ error: "No audio file uploaded" });
 
     // Upload to Cloudinary
+    console.log("Uploading to Cloudinary...");
     const result = await cloudinary.uploader.upload(req.file.path, {
       resource_type: "video",
       folder: "audio_recordings",
       format: "webm"
     });
+    console.log("Cloudinary upload result:", result);
 
     // Delete temp file
     fs.unlinkSync(req.file.path);
@@ -30,6 +33,7 @@ router.post("/upload-audio", upload.single("audio"), async (req, res) => {
     // Return Cloudinary URL
     res.json({ secure_url: result.secure_url });
   } catch (err) {
+    console.error("Upload error:", err);
     res.status(500).json({ error: err.message });
   }
 });
