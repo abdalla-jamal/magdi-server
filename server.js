@@ -39,6 +39,7 @@ app.use('/api/surveys' , surveyRoutes)
 
 //responses routes
 app.use('/api/responses', responseRoutes);
+app.use('/api/responses', uploadAudioRoutes);
 
 // admin routes
 app.use('/api/admin', adminRoutes);

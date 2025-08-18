@@ -13,8 +13,8 @@ cloudinary.config({
 });
 
 // POST /api/upload-audio
-router.post("/upload-audio", upload.single("audio"), async (req, res) => {
-  console.log("POST /api/upload-audio called");
+router.post("/uploadVoice", upload.single("voiceAnswer"), async (req, res) => {
+  console.log("POST /api/responses/uploadVoice called");
   try {
     console.log("Received file:", req.file);
     if (!req.file) return res.status(400).json({ error: "No audio file uploaded" });
