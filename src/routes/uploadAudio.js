@@ -1,0 +1,37 @@
+const express = require("express");
+const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
+const fs = require("fs");
+
+const router = express.Router();
+const upload = multer({ dest: "uploads/" });
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// POST /api/upload-audio
+router.post("/upload-audio", upload.single("audio"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No audio file uploaded" });
+
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      resource_type: "video",
+      folder: "audio_recordings",
+      format: "webm"
+    });
+
+    // Delete temp file
+    fs.unlinkSync(req.file.path);
+
+    // Return Cloudinary URL
+    res.json({ secure_url: result.secure_url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

@@ -5,6 +5,8 @@ const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const dotenv = require('dotenv');
+const path = require('path');
+const fs = require('fs');
 
 // Load environment variables
 dotenv.config();
@@ -27,7 +29,21 @@ const storage = new CloudinaryStorage({
   },
 });
 
-const upload = multer({ storage: storage });
+// طباعة معلومات Cloudinary للتشخيص
+console.log('Cloudinary configuration:', {
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo (default)',
+  api_key: process.env.CLOUDINARY_API_KEY ? '***' + process.env.CLOUDINARY_API_KEY.slice(-4) : 'not set',
+  api_secret: process.env.CLOUDINARY_API_SECRET ? '***' + process.env.CLOUDINARY_API_SECRET.slice(-4) : 'not set',
+});
+
+// Always use Cloudinary for audio uploads
+console.log('Using Cloudinary storage for voice recordings');
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB max file size
+  }
+});
 
 // التحقق من اتصال Cloudinary عند بدء السيرفر
 console.log('Checking Cloudinary configuration at startup');
@@ -94,14 +110,19 @@ const submitResponse = async (req, res) => {
       if (req.files && req.files.length > 0) {
         answers = answers.map(ans => {
           const file = req.files ? req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`) : null;
-          if (file && file.path) {
-            console.log(`Found voice file for question ${ans.questionId}:`, file.path);
+          if (file) {
+            console.log(`Found voice file for question ${ans.questionId}:`, file);
+            
+            // Get the Cloudinary URL from the file path
+            const fileUrl = file.path;
+            console.log('Cloudinary URL:', fileUrl);
+            
             // إضافة رابط الصوت وعلامة hasVoiceFile
             return { 
               ...ans, 
-              answer: file.path, 
+              answer: fileUrl, 
               hasVoiceFile: true,
-              voiceUrl: file.path // إضافة حقل إضافي للرابط
+              voiceUrl: fileUrl // إضافة حقل إضافي للرابط
             };
           }
           console.log(`No voice file for question ${ans.questionId}, keeping original answer:`, ans.answer);
@@ -192,6 +213,7 @@ const submitResponse = async (req, res) => {
       
       // حفظ معلومات الصوت بشكل صحيح
       const isVoiceAnswer = ans.hasVoiceFile || 
+                           ans.type === "voice" ||
                            (typeof ans.answer === 'string' && 
                             (ans.answer.includes('cloudinary.com') || 
                              ans.answer.includes('res.cloudinary.com') ||
@@ -358,7 +380,8 @@ const uploadVoiceResponse = async (req, res) => {
       originalname: req.file.originalname,
       mimetype: req.file.mimetype,
       size: req.file.size,
-      path: req.file.path || 'No path'
+      path: req.file.path || 'No path',
+      filename: req.file.filename || 'No filename'
     });
 
     // Extract questionId from the fieldname (format: voiceAnswer_QUESTION_ID)
@@ -373,15 +396,20 @@ const uploadVoiceResponse = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(questionId)) {
       return res.status(400).json({ error: 'Invalid questionId format' });
     }
+    
+    // Get the Cloudinary URL from the file path
+    const voiceUrl = req.file.path;
+    console.log('Cloudinary URL:', voiceUrl);
 
-    // Return the Cloudinary URL and question ID
+    // Return the URL and question ID
     res.status(200).json({
       success: true,
       data: {
         questionId,
-        voiceUrl: req.file.path,
+        voiceUrl: voiceUrl,
         mimetype: req.file.mimetype,
-        size: req.file.size
+        size: req.file.size,
+        storage: 'cloudinary'
       }
     });
   } catch (error) {
