@@ -14,14 +14,19 @@ cloudinary.config({
 });
 
 // Configure Cloudinary storage for audio files
-// Note: resource_type is set to "video" for audio files as per Cloudinary requirements
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'voices',
-    resource_type: 'video', // Important: Cloudinary requires audio to be uploaded as "video"
+    folder: 'survey_audio',
+    resource_type: 'video', // Cloudinary requires audio to be uploaded as "video"
     allowed_formats: ['mp3', 'wav', 'webm', 'ogg'],
-    public_id: (req, file) => `voice_${Date.now()}_${Math.round(Math.random() * 1E9)}`
+    format: 'webm',
+    transformation: [{ quality: "auto" }],
+    public_id: (req, file) => {
+      const timestamp = req.body.timestamp || Date.now();
+      const questionId = req.body.questionId || 'unknown';
+      return `voice_${timestamp}_${questionId}`;
+    }
   }
 });
 

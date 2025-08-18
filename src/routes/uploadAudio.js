@@ -14,13 +14,20 @@ router.post("/uploadVoice", upload.single("voiceAnswer"), async (req, res) => {
     }
 
     // File is automatically uploaded to Cloudinary by the CloudinaryStorage
-    // Just return the URL from the uploaded file
-    console.log("File uploaded successfully to Cloudinary");
+    console.log("File uploaded successfully to Cloudinary:", req.file);
+    
+    // CloudinaryStorage already uploaded the file and provided the URL
+    const cloudinaryUrl = req.file.path;
+    console.log("Cloudinary URL:", cloudinaryUrl);
     
     res.json({ 
-      secure_url: req.file.path, // CloudinaryStorage provides the URL in path
+      secure_url: cloudinaryUrl,
+      cloudinary_url: cloudinaryUrl, // Additional field for clarity
       public_id: req.file.filename,
-      questionId: req.body.questionId
+      questionId: req.body.questionId,
+      size: req.file.size,
+      format: req.file.originalname.split('.').pop(),
+      fileName: req.file.filename
     });
   } catch (err) {
     console.error("Upload error:", err);

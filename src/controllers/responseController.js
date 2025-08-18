@@ -384,13 +384,40 @@ const uploadVoiceResponse = async (req, res) => {
       filename: req.file.filename || 'No filename'
     });
 
-    // Extract questionId from the fieldname (format: voiceAnswer_QUESTION_ID)
-    const questionIdMatch = req.file.fieldname.match(/voiceAnswer_([a-f0-9]+)/i);
-    if (!questionIdMatch || !questionIdMatch[1]) {
-      return res.status(400).json({ error: 'Invalid fieldname format. Expected voiceAnswer_QUESTION_ID' });
+    // Get questionId from request body or try to extract from fieldname
+    let questionId;
+    
+    // First check if questionId is in the request body
+    if (req.body && req.body.questionId) {
+      console.log("Found questionId in request body:", req.body.questionId);
+      questionId = req.body.questionId;
+    } 
+    // Then try to extract from fieldname (format: voiceAnswer_QUESTION_ID)
+    else {
+      console.log("Trying to extract questionId from fieldname:", req.file.fieldname);
+      const questionIdMatch = req.file.fieldname.match(/voiceAnswer_([a-f0-9]+)/i);
+      if (questionIdMatch && questionIdMatch[1]) {
+        questionId = questionIdMatch[1];
+        console.log("Extracted questionId from fieldname:", questionId);
+      } else {
+        // If no questionId found, check if we have a field named voiceFile
+        if (req.file.fieldname === 'voiceFile') {
+          // Look for questionId in other form fields
+          if (req.body && req.body.questionId) {
+            questionId = req.body.questionId;
+            console.log("Using questionId from form field:", questionId);
+          } else {
+            return res.status(400).json({ 
+              error: 'Missing questionId. Please provide questionId in the request body.' 
+            });
+          }
+        } else {
+          return res.status(400).json({ 
+            error: 'Invalid fieldname format. Expected voiceAnswer_QUESTION_ID or voiceFile with questionId parameter' 
+          });
+        }
+      }
     }
-
-    const questionId = questionIdMatch[1];
     
     // Validate questionId is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(questionId)) {
@@ -414,9 +441,23 @@ const uploadVoiceResponse = async (req, res) => {
     });
   } catch (error) {
     console.error("Error uploading voice:", error);
+    // Log more detailed information for debugging
+    if (error.code === 'ENOENT') {
+      console.error("File not found error. This often happens when trying to access a file that doesn't exist.");
+    }
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ 
+        error: 'File too large',
+        details: 'The uploaded file exceeds the size limit.'
+      });
+    }
+    
+    // Send a more detailed error response
     res.status(500).json({ 
       error: 'Failed to upload voice recording',
-      details: error.message
+      details: error.message,
+      code: error.code || 'UNKNOWN',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };

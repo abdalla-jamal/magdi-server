@@ -12,7 +12,12 @@ const router = express.Router();
 router.post("/create", upload.any(), submitResponse);
 
 // Dedicated endpoint for voice uploads
-router.post("/uploadVoice", upload.single('voiceFile'), uploadVoiceResponse);
+router.post("/uploadVoice", (req, res, next) => {
+  console.log("Request received at /uploadVoice endpoint");
+  console.log("Content-Type:", req.headers['content-type']);
+  console.log("Request body:", req.body);
+  next();
+}, upload.single('voiceFile'), uploadVoiceResponse);
 
 // Get responses for a specific survey
 router.get("/:surveyId", getResponsesBySurvey);
