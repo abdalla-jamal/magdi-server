@@ -13,6 +13,14 @@ const answerSchema = new mongoose.Schema({
   reason: {
     type: String,
     required: false
+  },
+  hasVoiceFile: {
+    type: Boolean,
+    default: false
+  },
+  voiceUrl: {
+    type: String,
+    required: false
   }
 }, { _id: false });
 

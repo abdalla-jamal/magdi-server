@@ -219,13 +219,33 @@ const submitResponse = async (req, res) => {
     // Debug: Print answers before saving
     console.log("answers before save:", JSON.stringify(answers, null, 2));
 
+    // طباعة معلومات الإجابات قبل الحفظ للتشخيص
+    console.log("Final answers structure before saving to DB:", JSON.stringify(answers, null, 2));
+    
+    // تأكد من أن كل إجابة صوتية تحتوي على حقل hasVoiceFile وvoiceUrl
+    const processedAnswers = answers.map(ans => {
+      if (typeof ans.answer === 'string' && 
+          (ans.answer.includes('cloudinary.com') || 
+           ans.answer.includes('res.cloudinary.com') ||
+           ans.answer.includes('survey_audio'))) {
+        return {
+          ...ans,
+          hasVoiceFile: true,
+          voiceUrl: ans.voiceUrl || ans.answer
+        };
+      }
+      return ans;
+    });
+    
     const newResponse = new Response({
       surveyId,
-      answers,
+      answers: processedAnswers,
       name,
       email
     });
-
+    
+    console.log("Saving response with processed answers:", JSON.stringify(processedAnswers, null, 2));
+    
     await newResponse.save();
     res.status(201).json({ message: 'Response submitted successfully', response: newResponse });
   } catch (error) {
