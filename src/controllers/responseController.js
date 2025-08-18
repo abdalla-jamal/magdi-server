@@ -137,9 +137,7 @@ const submitResponse = async (req, res) => {
       return res.status(400).json({ error: 'answers array must not be empty' });
     }
     
-    if (!name || !email) {
-      return res.status(400).json({ error: 'name and email are required' });
-    }
+    // We'll check name and email requirements after fetching the survey category
 
     // Validate surveyId is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(surveyId)) {
@@ -161,6 +159,7 @@ const submitResponse = async (req, res) => {
         return res.status(400).json({ error: 'name and email are required for staff surveys' });
       }
     }
+    // For 'other' category, name and email are optional
 
     // Validate reasons for answers if required by question
     const questionMap = {};
