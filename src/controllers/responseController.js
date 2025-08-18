@@ -96,12 +96,21 @@ const submitResponse = async (req, res) => {
           const file = req.files ? req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`) : null;
           if (file && file.path) {
             console.log(`Found voice file for question ${ans.questionId}:`, file.path);
-            return { ...ans, answer: file.path, hasVoiceFile: true };
+            // إضافة رابط الصوت وعلامة hasVoiceFile
+            return { 
+              ...ans, 
+              answer: file.path, 
+              hasVoiceFile: true,
+              voiceUrl: file.path // إضافة حقل إضافي للرابط
+            };
           }
           console.log(`No voice file for question ${ans.questionId}, keeping original answer:`, ans.answer);
           return ans;
         });
       }
+      
+      // تأكد من طباعة الإجابات النهائية للتحقق
+      console.log("Final answers with voice files:", JSON.stringify(answers, null, 2));
 
       // Check for invalid answers, but allow empty answers if they have voice files
       const invalidAnswers = answers.filter(ans => {
@@ -181,13 +190,26 @@ const submitResponse = async (req, res) => {
         throw new Error(`Invalid questionId format: ${ans.questionId}`);
       }
       
+      // حفظ معلومات الصوت بشكل صحيح
+      const isVoiceAnswer = ans.hasVoiceFile || 
+                           (typeof ans.answer === 'string' && 
+                            (ans.answer.includes('cloudinary.com') || 
+                             ans.answer.includes('res.cloudinary.com') ||
+                             ans.answer.includes('survey_audio')));
+      
       return {
         questionId: ans.questionId,
-        answer: typeof ans.answer === 'undefined' || ans.answer === '' ? 'No response provided' : ans.answer,
+        answer: typeof ans.answer === 'undefined' || ans.answer === '' ? 
+                (isVoiceAnswer ? '' : 'No response provided') : 
+                ans.answer,
         reason: ans.reason || undefined,
-        hasVoiceFile: ans.hasVoiceFile || false
+        hasVoiceFile: isVoiceAnswer,
+        voiceUrl: isVoiceAnswer ? (ans.voiceUrl || ans.answer) : undefined
       };
     });
+    
+    // تأكد من طباعة الإجابات النهائية للتحقق
+    console.log("Final answers before saving:", JSON.stringify(answers, null, 2));
 
     // Debug logs before saving
     console.log('answers before save:', answers);

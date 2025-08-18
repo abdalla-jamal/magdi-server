@@ -135,7 +135,17 @@ const getSurveyById = async (req, res) => {
   try {
     const survey = await Survey.findById(req.params.id);
     if (!survey) return res.status(404).json({ error: 'Survey not found' });
-    res.status(200).json(survey);
+    
+    // تأكد من أن جميع الخصائص موجودة في الرد
+    const formattedSurvey = {
+      ...survey.toObject(),
+      questions: survey.questions.map(q => ({
+        ...q.toObject(),
+        requireReason: !!q.requireReason // تأكد من وجود خاصية requireReason
+      }))
+    };
+    
+    res.status(200).json(formattedSurvey);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -162,7 +172,8 @@ const getSurveyForResponse = async (req, res) => {
         _id: q._id,
         type: q.type,
         questionText: q.questionText,
-        options: q.options || q.Option || []
+        options: q.options || q.Option || [],
+        requireReason: !!q.requireReason // إضافة خاصية requireReason
       }))
     };
 
