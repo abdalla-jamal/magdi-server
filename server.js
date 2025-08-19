@@ -49,12 +49,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
 // Audio upload routes
-const uploadAudioRoutes = require('./src/routes/uploadAudio');
-app.use('/api/responses', uploadAudioRoutes);
-
-// Audio upload routes
 const audioUploadRoutes = require('./src/routes/uploadAudio');
-app.use('/api/responses/upload', audioUploadRoutes);
+app.use('/api/audio', audioUploadRoutes);
 
 // voice routes
 app.use('/api/voices', voiceRoutes);

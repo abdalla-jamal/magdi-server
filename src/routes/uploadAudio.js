@@ -15,12 +15,16 @@ const upload = multer({
 // Route to handle audio upload
 router.post('/upload', upload.single('file'), async (req, res) => {
     try {
+        console.log('Upload request received');
+        console.log('Files:', req.file ? 'File present' : 'No file');
+        console.log('Body:', req.body);
+
         if (!req.file) {
             return res.status(400).json({ error: 'No audio file uploaded' });
         }
 
         const file = req.file;
-        const surveyId = req.body.surveyId;
+        const surveyId = req.body.surveyId || 'default';
         const questionId = req.body.questionId;
 
         // Generate a unique filename
@@ -32,7 +36,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             Bucket: process.env.AWS_BUCKET_NAME,
             Key: filename,
             Body: file.buffer,
-            ContentType: file.mimetype
+            ContentType: file.mimetype,
+            ACL: 'public-read' // Make the file publicly accessible
         };
 
         await s3.send(new PutObjectCommand(uploadParams));
@@ -62,9 +67,21 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     } catch (error) {
         console.error('Error uploading audio:', error);
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            code: error.code
+        });
+        
+        // Check specific error types
+        if (error.$metadata) {
+            console.error('AWS Error Metadata:', error.$metadata);
+        }
+        
         res.status(500).json({
             error: 'Failed to upload audio recording',
-            details: error.message
+            details: error.message,
+            code: error.code || 'UNKNOWN_ERROR'
         });
     }
 });
