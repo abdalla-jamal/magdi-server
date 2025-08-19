@@ -19,6 +19,15 @@ const upload = multer({
 // S3 upload controller
 const uploadToS3 = async (req, res) => {
   try {
+    // Log request info for debugging
+    console.log('S3 upload request received:', {
+      contentType: req.headers['content-type'],
+      hasFile: !!req.file,
+      fileName: req.file?.originalname,
+      fileSize: req.file?.size,
+      bodyFields: Object.keys(req.body || {})
+    });
+    
     // Check for required AWS env vars
     if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY || !process.env.AWS_BUCKET_NAME || !process.env.AWS_REGION) {
       console.error('Missing AWS S3 environment variables:', {
@@ -34,7 +43,11 @@ const uploadToS3 = async (req, res) => {
     }
     const file = req.file;
     const ext = file.originalname.split('.').pop();
-    const filename = `records/${Date.now()}_${Math.round(Math.random() * 1E9)}.${ext}`;
+    // Create a more descriptive filename that includes questionId if available
+    const questionId = req.body.questionId || 'unknown';
+    const timestamp = Date.now();
+    const randomId = Math.round(Math.random() * 1E9);
+    const filename = `records/${timestamp}_${questionId}_${randomId}.${ext}`;
     const params = {
       Bucket: BUCKET,
       Key: filename,

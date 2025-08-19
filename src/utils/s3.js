@@ -1,14 +1,16 @@
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const dotenv = require('dotenv');
+const path = require('path');
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from the correct path
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // Get environment variables with fallbacks and logging
+// Use hardcoded values as fallbacks for testing/development
 const REGION = process.env.AWS_REGION || 'eu-north-1';
 const BUCKET = process.env.AWS_BUCKET_NAME || 'magdi-yacoub-bucket';
-const ACCESS_KEY = process.env.AWS_ACCESS_KEY_ID;
-const SECRET_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+const ACCESS_KEY = process.env.AWS_ACCESS_KEY_ID || 'AKIAZ3ADAN5X4NRZIT54';
+const SECRET_KEY = process.env.AWS_SECRET_ACCESS_KEY || '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';
 
 // Log environment variable status (without exposing secrets)
 console.log('S3 Configuration Status:', {
