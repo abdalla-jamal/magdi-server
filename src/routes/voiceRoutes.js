@@ -1,5 +1,4 @@
 const express = require('express');
-const { upload } = require('../config/cloudinaryConfig');
 const Voice = require('../models/Voice');
 
 const router = express.Router();
@@ -9,7 +8,7 @@ const router = express.Router();
  * @desc    Upload a voice recording to Cloudinary and save URL to MongoDB
  * @access  Public
  */
-router.post('/upload', upload.single('voice'), async (req, res) => {
+router.post('/upload', async (req, res) => {
   try {
     // Check if file was uploaded
     if (!req.file) {

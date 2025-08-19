@@ -2,62 +2,44 @@ const Response = require('../models/response_model.js');
 const Survey = require('../models/SurveyModel');
 const mongoose = require('mongoose');
 const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
+const { s3, PutObjectCommand, getS3PublicUrl, BUCKET } = require('../utils/s3');
 
 // Load environment variables
 dotenv.config();
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo',
-  api_key: process.env.CLOUDINARY_API_KEY || '123456789012345',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'abcdefghijklmnopqrstuvwxyz12',
+// Setup multer for local file handling
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
-// Setup Cloudinary storage for audio files
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'survey_audio',
-    resource_type: 'video', // Important: Cloudinary requires audio to be uploaded as "video"
-    format: 'auto', // Let Cloudinary handle the format conversion
-    public_id: (req, file) => `audio_${Date.now()}_${Math.round(Math.random() * 1E9)}`,
-  },
-});
-
-// طباعة معلومات Cloudinary للتشخيص
-console.log('Cloudinary configuration:', {
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo (default)',
-  api_key: process.env.CLOUDINARY_API_KEY ? '***' + process.env.CLOUDINARY_API_KEY.slice(-4) : 'not set',
-  api_secret: process.env.CLOUDINARY_API_SECRET ? '***' + process.env.CLOUDINARY_API_SECRET.slice(-4) : 'not set',
-});
-
-// Always use Cloudinary for audio uploads
-console.log('Using Cloudinary storage for voice recordings');
-const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB max file size
-  }
-});
-
-// التحقق من اتصال Cloudinary عند بدء السيرفر
-console.log('Checking Cloudinary configuration at startup');
-try {
-  cloudinary.api.ping((error, result) => {
-    if (error) {
-      console.error('Cloudinary connection failed:', error);
-    } else {
-      console.log('Cloudinary connection successful:', result);
+// S3 upload controller
+const uploadToS3 = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
     }
-  });
-} catch (err) {
-  console.error('Error checking Cloudinary connection:', err);
-}
+    const file = req.file;
+    const ext = file.originalname.split('.').pop();
+    const filename = `records/${Date.now()}_${Math.round(Math.random() * 1E9)}.${ext}`;
+    const params = {
+      Bucket: BUCKET,
+      Key: filename,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+      ACL: 'public-read',
+    };
+    await s3.send(new PutObjectCommand(params));
+    const url = getS3PublicUrl(filename);
+    return res.status(200).json({ url });
+  } catch (err) {
+    console.error('S3 upload error:', err);
+    return res.status(500).json({ error: 'Failed to upload file', details: err.message });
+  }
+};
 
 /**
  * Submit a survey response
@@ -65,116 +47,35 @@ try {
  */
 const submitResponse = async (req, res) => {
   try {
-    console.log("Request received:", req.method, req.path);
-    console.log("Content-Type:", req.headers['content-type']);
-    console.log("Request body keys:", req.body ? Object.keys(req.body) : "No body");
-    
-    // إذا كان الطلب من نوع form-data (ملفات وصوت)
     let answers, surveyId, name, email;
     if (req.is('multipart/form-data')) {
-      console.log("Processing multipart form data");
-      console.log("Body:", req.body);
-      console.log("Files:", req.files ? `${req.files.length} files received` : "No files");
-      
-      if (req.files) {
-        req.files.forEach((file, index) => {
-          console.log(`File ${index + 1}:`, {
-            fieldname: file.fieldname,
-            originalname: file.originalname,
-            mimetype: file.mimetype,
-            size: file.size,
-            path: file.path || 'No path'
-          });
-        });
-      }
-      
+      // Only parse fields, do not process files
       surveyId = req.body.surveyId;
       name = req.body.name || '';
       email = req.body.email || '';
-      
-      // Verify we have the answers field
       if (!req.body.answers) {
-        console.error("Missing answers field in request body");
         return res.status(400).json({ error: 'Missing answers field in request body' });
       }
-      
       try {
         answers = JSON.parse(req.body.answers || '[]');
-        console.log("Parsed answers:", answers);
       } catch (parseError) {
-        console.error("Error parsing answers JSON:", parseError, "Raw answers:", req.body.answers);
         return res.status(400).json({ error: 'Invalid answers JSON format', details: parseError.message });
       }
-      
-      // ربط ملفات الصوت بالإجابات
-      if (req.files && req.files.length > 0) {
-        answers = answers.map(ans => {
-          const file = req.files ? req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`) : null;
-          if (file) {
-            console.log(`Found voice file for question ${ans.questionId}:`, file);
-            
-            // Get the Cloudinary URL from the file path
-            const fileUrl = file.path;
-            console.log('Cloudinary URL:', fileUrl);
-            
-            // إضافة رابط الصوت وعلامة hasVoiceFile
-            return { 
-              ...ans, 
-              answer: fileUrl, 
-              hasVoiceFile: true,
-              voiceUrl: fileUrl // إضافة حقل إضافي للرابط
-            };
-          }
-          console.log(`No voice file for question ${ans.questionId}, keeping original answer:`, ans.answer);
-          return ans;
-        });
-      }
-      
-      // تأكد من طباعة الإجابات النهائية للتحقق
-      console.log("Final answers with voice files:", JSON.stringify(answers, null, 2));
-
-      // Check for invalid answers, but allow empty answers if they have voice files
-      const invalidAnswers = answers.filter(ans => {
-        const hasVoiceFile = req.files && req.files.some(f => f.fieldname === `voiceAnswer_${ans.questionId}`);
-        return (!ans.answer || ans.answer === "") && !hasVoiceFile;
-      });
-      if (invalidAnswers.length > 0) {
-        // تحقق إذا فيه ملف صوت مرتبط بالإجابة
-        const hasVoiceFile = invalidAnswers.some(ans => req.files && req.files.find(f => f.fieldname === `voiceAnswer_${ans.questionId}`));
-        if (!hasVoiceFile) {
-          return res.status(400).json({ error: "All answers must have a value (text or file URL)." });
-        }
-      }
-
-      // Debug: log final answers array
-      console.log("Final answers array before saving:", answers);
     } else {
-      // إذا كان الطلب JSON عادي
-      console.log("Processing JSON request");
       ({ surveyId, answers, name, email } = req.body);
     }
-
-    // Validate required fields
     if (!surveyId) {
       return res.status(400).json({ error: 'surveyId is required' });
     }
-    
     if (!answers || !Array.isArray(answers)) {
       return res.status(400).json({ error: 'answers must be an array' });
     }
-    
     if (answers.length === 0) {
       return res.status(400).json({ error: 'answers array must not be empty' });
     }
-    
-    // We'll check name and email requirements after fetching the survey category
-
-    // Validate surveyId is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(surveyId)) {
       return res.status(400).json({ error: 'Invalid surveyId format' });
     }
-
-    // Check if survey exists and is open
     const survey = await Survey.findById(surveyId);
     if (!survey) {
       return res.status(404).json({ error: 'Survey not found' });
@@ -182,15 +83,11 @@ const submitResponse = async (req, res) => {
     if (survey.status !== 'open') {
       return res.status(400).json({ error: 'Survey is not open for responses' });
     }
-
-    // Require name and email only if category is 'staff'
     if (survey.category === 'staff') {
       if (!name || !email) {
         return res.status(400).json({ error: 'name and email are required for staff surveys' });
       }
     }
-    // For 'other' category, name and email are optional
-
     // Validate reasons for answers if required by question
     const questionMap = {};
     survey.questions.forEach(q => { questionMap[q._id.toString()] = q; });
@@ -202,103 +99,31 @@ const submitResponse = async (req, res) => {
         }
       }
     }
-
-    // أمان إضافي: تأكد أن كل إجابة فيها answer على الأقل ""
+    // Only accept S3 URLs for voice answers
     answers = answers.map(ans => {
-      // Ensure questionId is a valid ObjectId
       if (!ans.questionId || !mongoose.Types.ObjectId.isValid(ans.questionId)) {
-        console.error(`Invalid questionId: ${ans.questionId}`);
         throw new Error(`Invalid questionId format: ${ans.questionId}`);
       }
-      
-      // حفظ معلومات الصوت بشكل صحيح
-      const isVoiceAnswer = ans.hasVoiceFile || 
-                           ans.type === "voice" ||
-                           (typeof ans.answer === 'string' && 
-                            (ans.answer.includes('cloudinary.com') || 
-                             ans.answer.includes('res.cloudinary.com') ||
-                             ans.answer.includes('survey_audio')));
-      
+      const isVoiceAnswer = ans.type === 'voice' && typeof ans.answer === 'string' && ans.answer.startsWith('https://');
       return {
         questionId: ans.questionId,
-        answer: typeof ans.answer === 'undefined' || ans.answer === '' ? 
-                (isVoiceAnswer ? '' : 'No response provided') : 
-                ans.answer,
+        answer: ans.answer,
         reason: ans.reason || undefined,
         hasVoiceFile: isVoiceAnswer,
-        voiceUrl: isVoiceAnswer ? (ans.voiceUrl || ans.answer) : undefined
+        voiceUrl: isVoiceAnswer ? ans.answer : undefined,
+        type: ans.type
       };
     });
-    
-    // تأكد من طباعة الإجابات النهائية للتحقق
-    console.log("Final answers before saving:", JSON.stringify(answers, null, 2));
-
-    // Debug logs before saving
-    console.log('answers before save:', answers);
-    console.log('req.files:', req.files);
-    console.log('surveyId:', surveyId, 'name:', name, 'email:', email);
-
-    // Debug: Print answers before saving
-    console.log("answers before save:", JSON.stringify(answers, null, 2));
-
-    // طباعة معلومات الإجابات قبل الحفظ للتشخيص
-    console.log("Final answers structure before saving to DB:", JSON.stringify(answers, null, 2));
-    
-    // تأكد من أن كل إجابة صوتية تحتوي على حقل hasVoiceFile وvoiceUrl
-    const processedAnswers = answers.map(ans => {
-      if (typeof ans.answer === 'string' && 
-          (ans.answer.includes('cloudinary.com') || 
-           ans.answer.includes('res.cloudinary.com') ||
-           ans.answer.includes('survey_audio'))) {
-        return {
-          ...ans,
-          hasVoiceFile: true,
-          voiceUrl: ans.voiceUrl || ans.answer
-        };
-      }
-      return ans;
-    });
-    
     const newResponse = new Response({
       surveyId,
-      answers: processedAnswers,
+      answers,
       name,
       email
     });
-    
-    console.log("Saving response with processed answers:", JSON.stringify(processedAnswers, null, 2));
-    
     await newResponse.save();
     res.status(201).json({ message: 'Response submitted successfully', response: newResponse });
   } catch (error) {
-    console.error("Error in submitResponse:", error.message);
-    console.error("Stack trace:", error.stack);
-    
-    // Check for specific Cloudinary errors
-    if (error.message && (error.message.includes('Cloudinary') || error.message.includes('cloud'))) {
-      console.error("Cloudinary error detected:", error.message);
-      return res.status(500).json({ 
-        error: 'Failed to upload voice recording to cloud storage', 
-        details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
-    }
-    
-    // Check for file size errors
-    if (error.message && error.message.includes('size')) {
-      console.error("File size error detected");
-      return res.status(413).json({ 
-        error: 'Voice recording file too large', 
-        details: error.message
-      });
-    }
-    
-    // General error handling
-    res.status(500).json({ 
-      error: 'Failed to submit response', 
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    res.status(500).json({ error: 'Failed to submit response', details: error.message });
   }
 };
 
@@ -466,5 +291,6 @@ module.exports = {
   getResponsesBySurvey,
   submitResponse,
   uploadVoiceResponse,
-  upload
+  upload,
+  uploadToS3,
 };

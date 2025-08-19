@@ -4,6 +4,7 @@ const {
   getResponsesBySurvey,
   uploadVoiceResponse,
   upload,
+  uploadToS3,
 } = require("../controllers/responseController.js");
 
 const router = express.Router();
@@ -18,6 +19,9 @@ router.post("/uploadVoice", (req, res, next) => {
   console.log("Request body:", req.body);
   next();
 }, upload.single('voiceFile'), uploadVoiceResponse);
+
+// Add S3 upload endpoint
+router.post("/upload", upload.single('file'), uploadToS3);
 
 // Get responses for a specific survey
 router.get("/:surveyId", getResponsesBySurvey);
