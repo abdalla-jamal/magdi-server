@@ -19,6 +19,16 @@ const upload = multer({
 // S3 upload controller
 const uploadToS3 = async (req, res) => {
   try {
+    // Check for required AWS env vars
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY || !process.env.AWS_BUCKET_NAME || !process.env.AWS_REGION) {
+      console.error('Missing AWS S3 environment variables:', {
+        AWS_ACCESS_KEY_ID: !!process.env.AWS_ACCESS_KEY_ID,
+        AWS_SECRET_ACCESS_KEY: !!process.env.AWS_SECRET_ACCESS_KEY,
+        AWS_BUCKET_NAME: !!process.env.AWS_BUCKET_NAME,
+        AWS_REGION: !!process.env.AWS_REGION,
+      });
+      return res.status(500).json({ error: 'AWS S3 credentials or config missing from environment variables.' });
+    }
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
@@ -36,8 +46,8 @@ const uploadToS3 = async (req, res) => {
     const url = getS3PublicUrl(filename);
     return res.status(200).json({ url });
   } catch (err) {
-    console.error('S3 upload error:', err);
-    return res.status(500).json({ error: 'Failed to upload file', details: err.message });
+    console.error('S3 upload error:', err, err.stack);
+    return res.status(500).json({ error: 'Failed to upload file', details: err.message, stack: err.stack });
   }
 };
 
