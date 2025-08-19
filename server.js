@@ -48,6 +48,10 @@ app.use('/api/admin', adminRoutes);
 // analysis Route
 app.use('/api/analytics', analyticsRoutes);
 
+// Audio upload routes
+const audioUploadRoutes = require('./src/routes/uploadAudio');
+app.use('/api/responses/upload', audioUploadRoutes);
+
 // voice routes
 app.use('/api/voices', voiceRoutes);
 const PORT = process.env.PORT || 5000;

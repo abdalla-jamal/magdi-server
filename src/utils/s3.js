@@ -49,5 +49,6 @@ module.exports = {
   s3,
   PutObjectCommand,
   getS3PublicUrl,
+  getS3PublicUrl,
   BUCKET,
 };

@@ -10,9 +10,13 @@ const voiceSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  userId: {
+  surveyId: {
     type: String,
-    required: false
+    required: true
+  },
+  questionId: {
+    type: String,
+    required: true
   },
   createdAt: {
     type: Date,
