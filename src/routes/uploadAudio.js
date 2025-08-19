@@ -13,7 +13,7 @@ const upload = multer({
 });
 
 // Route to handle audio upload
-router.post('/upload', upload.single('audio'), async (req, res) => {
+router.post('/upload', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No audio file uploaded' });

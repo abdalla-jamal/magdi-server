@@ -14,7 +14,7 @@ const app = express();
 
 // Configure CORS to allow requests from frontend
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:5000', 'http://127.0.0.1:5173'],
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:5000', 'http://127.0.0.1:5173', 'https://magdi-yacoub-survey.vercel.app'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length'],
@@ -47,6 +47,10 @@ app.use('/api/admin', adminRoutes);
 
 // analysis Route
 app.use('/api/analytics', analyticsRoutes);
+
+// Audio upload routes
+const uploadAudioRoutes = require('./src/routes/uploadAudio');
+app.use('/api/responses', uploadAudioRoutes);
 
 // Audio upload routes
 const audioUploadRoutes = require('./src/routes/uploadAudio');
