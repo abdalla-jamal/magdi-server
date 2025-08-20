@@ -52,7 +52,9 @@ const uploadToS3 = async (req, res) => {
       Bucket: BUCKET,
       Key: filename,
       Body: file.buffer,
-      ContentType: file.mimetype,
+      ContentType: file.mimetype || 'audio/webm',
+      ACL: 'public-read',
+      ContentDisposition: 'inline'
     };
     await s3.send(new PutObjectCommand(params));
     const url = getS3PublicUrl(filename);
