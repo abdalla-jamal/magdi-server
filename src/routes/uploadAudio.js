@@ -37,7 +37,6 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             Key: filename,
             Body: file.buffer,
             ContentType: file.mimetype,
-            ACL: 'public-read' // Make the file publicly accessible
         };
 
         await s3.send(new PutObjectCommand(uploadParams));

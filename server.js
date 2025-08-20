@@ -50,7 +50,7 @@ app.use('/api/analytics', analyticsRoutes);
 
 // Audio upload routes
 const audioUploadRoutes = require('./src/routes/uploadAudio');
-app.use('/api/audio', audioUploadRoutes);
+app.use('/api/responses/audio', audioUploadRoutes);
 
 // voice routes
 app.use('/api/voices', voiceRoutes);
