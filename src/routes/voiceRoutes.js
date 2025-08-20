@@ -1,5 +1,6 @@
 const express = require('express');
 const Voice = require('../models/Voice');
+const { s3, BUCKET, GetObjectCommand } = require('../utils/s3');
 
 const router = express.Router();
 
@@ -99,3 +100,21 @@ router.get('/:id', async (req, res) => {
 });
 
 module.exports = router;
+
+// Stream S3 audio by key via backend (proxy)
+router.get('/stream', async (req, res) => {
+  try {
+    const { key } = req.query;
+    if (!key) return res.status(400).json({ error: 'Missing key query param' });
+
+    const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
+    const data = await s3.send(command);
+
+    res.setHeader('Content-Type', data.ContentType || 'audio/webm');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    data.Body.pipe(res);
+  } catch (err) {
+    console.error('S3 stream error:', err.message);
+    res.status(500).json({ error: 'Failed to stream audio' });
+  }
+});

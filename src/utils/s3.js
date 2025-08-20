@@ -1,4 +1,4 @@
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const dotenv = require('dotenv');
 const path = require('path');
 
@@ -47,6 +47,7 @@ function getS3PublicUrl(key) {
 module.exports = {
   s3,
   PutObjectCommand,
+  GetObjectCommand,
   getS3PublicUrl,
   BUCKET,
 };
