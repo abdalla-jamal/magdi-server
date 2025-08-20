@@ -1,16 +1,10 @@
 const express = require('express');
-const multer = require('multer');
-const { s3, PutObjectCommand, getS3PublicUrl } = require('../utils/s3');
+const { getS3PublicUrl } = require('../utils/s3');
 const Voice = require('../models/Voice');
+const upload = require('../middleware/uploadS3');
 const router = express.Router();
 
-// Configure multer for memory storage
-const upload = multer({ 
-    storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 5 * 1024 * 1024 // 5MB limit
-    }
-});
+
 
 // Route to handle audio upload
 router.post('/upload', upload.single('file'), async (req, res) => {
@@ -19,30 +13,20 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         console.log('Files:', req.file ? 'File present' : 'No file');
         console.log('Body:', req.body);
 
+        if (!req.body?.questionId) {
+            return res.status(400).json({ error: 'Missing questionId in form-data' });
+        }
+
         if (!req.file) {
             return res.status(400).json({ error: 'No audio file uploaded' });
         }
 
-        const file = req.file;
+        const { key, location } = req.file; // provided by multer-s3
         const surveyId = req.body.surveyId || 'default';
         const questionId = req.body.questionId;
 
-        // Generate a unique filename
-        const timestamp = Date.now();
-        const filename = `audio/${surveyId}/${questionId}/${timestamp}-${file.originalname}`;
-
-        // Upload to S3
-        const uploadParams = {
-            Bucket: process.env.AWS_BUCKET_NAME,
-            Key: filename,
-            Body: file.buffer,
-            ContentType: file.mimetype,
-        };
-
-        await s3.send(new PutObjectCommand(uploadParams));
-
-        // Get the public URL
-        const fileUrl = getS3PublicUrl(filename);
+        // Prefer location from multer-s3; fallback to constructing URL
+        const fileUrl = location || getS3PublicUrl(key);
 
         // Save voice record to database
         const newVoice = new Voice({
