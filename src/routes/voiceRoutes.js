@@ -73,6 +73,24 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Stream S3 audio by key via backend (proxy) - MUST be before /:id route
+router.get('/stream', async (req, res) => {
+  try {
+    const { key } = req.query;
+    if (!key) return res.status(400).json({ error: 'Missing key query param' });
+
+    const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
+    const data = await s3.send(command);
+
+    res.setHeader('Content-Type', data.ContentType || 'audio/webm');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    data.Body.pipe(res);
+  } catch (err) {
+    console.error('S3 stream error:', err.message);
+    res.status(500).json({ error: 'Failed to stream audio' });
+  }
+});
+
 /**
  * @route   GET /api/voices/:id
  * @desc    Get a single voice recording by ID
@@ -80,6 +98,10 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
+    const id = req.params.id;
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({ error: 'Invalid voice id format' });
+    }
     const voice = await Voice.findById(req.params.id);
     
     if (!voice) {
@@ -98,23 +120,4 @@ router.get('/:id', async (req, res) => {
     });
   }
 });
-
- // Stream S3 audio by key via backend (proxy) - MUST be before /:id route
- router.get('/stream', async (req, res) => {
-   try {
-     const { key } = req.query;
-     if (!key) return res.status(400).json({ error: 'Missing key query param' });
- 
-     const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
-     const data = await s3.send(command);
- 
-     res.setHeader('Content-Type', data.ContentType || 'audio/webm');
-     res.setHeader('Cache-Control', 'public, max-age=3600');
-     data.Body.pipe(res);
-   } catch (err) {
-     console.error('S3 stream error:', err.message);
-     res.status(500).json({ error: 'Failed to stream audio' });
-   }
- });
- 
  module.exports = router;
