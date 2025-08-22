@@ -8,6 +8,7 @@ const responseRoutes = require('./src/routes/responseRoutes.js');
 const adminRoutes = require('./src/routes/adminRoutes.js');
 const analyticsRoutes = require('./src/routes/analyticsRoutes.js');
 const voiceRoutes = require('./src/routes/voiceRoutes.js');
+const categoryRoutes = require('./src/routes/categoryRoutes.js');
 dotenv.config();
 connectDB();
 const app = express();
@@ -54,5 +55,8 @@ app.use('/api/responses/audio', audioUploadRoutes);
 
 // voice routes
 app.use('/api/voices', voiceRoutes);
+
+// category routes
+app.use('/api/categories', categoryRoutes);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
