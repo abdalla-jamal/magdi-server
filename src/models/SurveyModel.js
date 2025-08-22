@@ -36,8 +36,8 @@ const surveySchema = new mongoose.Schema(
     },
     questions: [questionSchema],
     category: {
-      type: String,
-      enum: ["staff", "other"],
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Category',
       required: true,
     },
   },
