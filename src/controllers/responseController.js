@@ -111,10 +111,20 @@ const submitResponse = async (req, res) => {
     const category = await Category.findById(survey.category);
     if (category && category.settings) {
       // Check if email is required for this category
-      if (category.settings.emailRequired && (!email || email.trim() === '')) {
-        return res.status(400).json({ 
-          error: `Email is required for ${category.name} surveys` 
-        });
+      if (category.settings.emailRequired) {
+        if (!email || email.trim() === '') {
+          return res.status(400).json({ 
+            error: 'Email is required for this survey' 
+          });
+        }
+        
+        // Validate email format using standard regex
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) {
+          return res.status(400).json({ 
+            error: 'Please provide a valid email address' 
+          });
+        }
       }
       
       // Check if name is required for this category
