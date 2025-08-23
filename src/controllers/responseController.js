@@ -1,5 +1,6 @@
 const Response = require('../models/response_model.js');
 const Survey = require('../models/SurveyModel');
+const Category = require('../models/categoryModel');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const dotenv = require('dotenv');
@@ -105,9 +106,29 @@ const submitResponse = async (req, res) => {
     if (survey.status !== 'open') {
       return res.status(400).json({ error: 'Survey is not open for responses' });
     }
-    if (survey.category === 'staff') {
-      if (!name || !email) {
-        return res.status(400).json({ error: 'name and email are required for staff surveys' });
+
+    // Get category information to check requirements
+    const category = await Category.findById(survey.category);
+    if (category && category.settings) {
+      // Check if email is required for this category
+      if (category.settings.emailRequired && (!email || email.trim() === '')) {
+        return res.status(400).json({ 
+          error: `Email is required for ${category.name} surveys` 
+        });
+      }
+      
+      // Check if name is required for this category
+      if (category.settings.nameRequired && (!name || name.trim() === '')) {
+        return res.status(400).json({ 
+          error: `Name is required for ${category.name} surveys` 
+        });
+      }
+      
+      // Check if anonymous responses are not allowed
+      if (category.settings.allowAnonymous === false && (!name || !email)) {
+        return res.status(400).json({ 
+          error: `Name and email are required for ${category.name} surveys` 
+        });
       }
     }
     // Validate reasons for answers if required by question
