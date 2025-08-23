@@ -10,7 +10,7 @@ const createSurvey = async (req, res) => {
         .json({ error: 'Invalid status value. Must be "open" or "closed".' });
     }
     // Validate category
-    const validCategories = ["staff", "other"];
+    const validCategories = await Category.find();
     if (!req.body.category || !validCategories.includes(req.body.category)) {
       return res.status(400).json({ error: 'Invalid or missing category. Must be "staff" or "other".' });
     }
