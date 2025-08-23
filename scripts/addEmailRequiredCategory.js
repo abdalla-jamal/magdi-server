@@ -62,3 +62,4 @@ const addEmailRequiredCategory = async () => {
 };
 
 addEmailRequiredCategory();
+
