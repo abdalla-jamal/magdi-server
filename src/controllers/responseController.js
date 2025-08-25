@@ -1,5 +1,6 @@
 const Response = require('../models/response_model.js');
 const Survey = require('../models/SurveyModel');
+const Category = require('../models/CategoryModel');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const dotenv = require('dotenv');
@@ -98,16 +99,30 @@ const submitResponse = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(surveyId)) {
       return res.status(400).json({ error: 'Invalid surveyId format' });
     }
-    const survey = await Survey.findById(surveyId);
+    const survey = await Survey.findById(surveyId).populate('category', 'name settings');
     if (!survey) {
       return res.status(404).json({ error: 'Survey not found' });
     }
     if (survey.status !== 'open') {
       return res.status(400).json({ error: 'Survey is not open for responses' });
     }
-    if (survey.category === 'staff') {
-      if (!name || !email) {
-        return res.status(400).json({ error: 'name and email are required for staff surveys' });
+    
+    // Validate name and email based on category settings
+    if (survey.category && survey.category.settings) {
+      const { nameRequired, emailRequired } = survey.category.settings;
+      
+      if (nameRequired && (!name || name.trim() === '')) {
+        return res.status(400).json({ 
+          error: 'Name is required for this survey category',
+          field: 'name'
+        });
+      }
+      
+      if (emailRequired && (!email || email.trim() === '')) {
+        return res.status(400).json({ 
+          error: 'Email is required for this survey category',
+          field: 'email'
+        });
       }
     }
     // Validate reasons for answers if required by question

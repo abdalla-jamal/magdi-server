@@ -1,4 +1,5 @@
 const Survey = require("../models/SurveyModel");
+const Category = require("../models/CategoryModel");
 
 const createSurvey = async (req, res) => {
   try {
@@ -10,9 +11,14 @@ const createSurvey = async (req, res) => {
         .json({ error: 'Invalid status value. Must be "open" or "closed".' });
     }
     // Validate category
-    const validCategories = ["staff", "other"];
-    if (!req.body.category || !validCategories.includes(req.body.category)) {
-      return res.status(400).json({ error: 'Invalid or missing category. Must be "staff" or "other".' });
+    if (!req.body.category) {
+      return res.status(400).json({ error: 'Category is required.' });
+    }
+
+    // Check if category exists
+    const category = await Category.findById(req.body.category);
+    if (!category || !category.isActive) {
+      return res.status(400).json({ error: 'Invalid or inactive category.' });
     }
 
     const survey = await Survey.create(req.body);
@@ -82,6 +88,7 @@ const getAllSurveys = async (req, res) => {
     const totalPages = Math.ceil(totalSurveys / limitNum);
 
     surveys = await Survey.find(filter)
+      .populate('category', 'name description settings')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
@@ -133,7 +140,7 @@ const getAllSurveys = async (req, res) => {
 
 const getSurveyById = async (req, res) => {
   try {
-    const survey = await Survey.findById(req.params.id);
+    const survey = await Survey.findById(req.params.id).populate('category', 'name description settings');
     if (!survey) return res.status(404).json({ error: 'Survey not found' });
     
     // تأكد من أن جميع الخصائص موجودة في الرد
@@ -154,7 +161,7 @@ const getSurveyById = async (req, res) => {
 // Get survey for response (public endpoint)
 const getSurveyForResponse = async (req, res) => {
   try {
-    const survey = await Survey.findById(req.params.id);
+    const survey = await Survey.findById(req.params.id).populate('category', 'name description settings');
     if (!survey) {
       return res.status(404).json({ error: 'Survey not found' });
     }
