@@ -13,12 +13,12 @@ dotenv.config();
 connectDB();
 const app = express();
 
-// Configure CORS to allow requests from frontend
+// Configure CORS to allow requests from any origin
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:5000', 'http://127.0.0.1:5173', 'https://magdi-yacoub-survey-6w9x.vercel.app/'],
+  origin: true, // Allow all origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With'],
   exposedHeaders: ['Content-Length']
 };
 
