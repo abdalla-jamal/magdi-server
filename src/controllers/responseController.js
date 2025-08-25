@@ -97,6 +97,26 @@ const submitResponse = async (req, res) => {
     if (answers.length === 0) {
       return res.status(400).json({ error: 'answers array must not be empty' });
     }
+    
+    // Filter out completely empty answers to avoid validation errors
+    answers = answers.filter(ans => {
+      // Keep answers that have some content
+      if (ans.type === 'text+voice') {
+        // For text+voice, keep if there's text or voice
+        return (ans.textAnswer && ans.textAnswer.trim()) || 
+               (ans.voiceAnswerUrl && ans.voiceAnswerUrl.trim());
+      }
+      
+      // For other types, keep if answer exists and is not empty
+      return ans.answer !== null && ans.answer !== undefined && 
+             (Array.isArray(ans.answer) ? ans.answer.length > 0 : ans.answer !== '');
+    });
+    
+    // Check if we still have answers after filtering
+    if (answers.length === 0) {
+      return res.status(400).json({ error: 'No valid answers provided. Please answer at least one question.' });
+    }
+    
     if (!mongoose.Types.ObjectId.isValid(surveyId)) {
       return res.status(400).json({ error: 'Invalid surveyId format' });
     }
@@ -183,7 +203,7 @@ const submitResponse = async (req, res) => {
           questionId: ans.questionId,
           textAnswer: hasText ? ans.textAnswer.trim() : undefined,
           voiceAnswerUrl: hasVoice ? ans.voiceAnswerUrl : undefined,
-          answer: hasText ? ans.textAnswer.trim() : '', // Keep for backward compatibility
+          answer: hasText ? ans.textAnswer.trim() : (hasVoice ? 'Voice Answer' : ''), // Keep for backward compatibility
           reason: ans.reason || undefined,
           hasVoiceFile: hasVoice,
           voiceUrl: hasVoice ? ans.voiceAnswerUrl : undefined,
@@ -208,9 +228,12 @@ const submitResponse = async (req, res) => {
       }
       
       // Handle all other question types (text, radio, checkbox, rating, etc.)
+      // Allow empty answers for optional questions
+      const processedAnswer = ans.answer !== undefined ? ans.answer : null;
+      
       return {
         questionId: ans.questionId,
-        answer: ans.answer || null,
+        answer: processedAnswer,
         reason: ans.reason || undefined,
         hasVoiceFile: false,
         voiceUrl: undefined,
