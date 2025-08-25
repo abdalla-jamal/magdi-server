@@ -8,7 +8,15 @@ const answerSchema = new mongoose.Schema({
   },
   answer: {
     type: mongoose.Schema.Types.Mixed, //  يقبل String أو Array أو Number
-    required: true
+    required: false // Made optional to support text+voice where either can be provided
+  },
+  textAnswer: {
+    type: String,
+    required: false // For text+voice questions
+  },
+  voiceAnswerUrl: {
+    type: String,
+    required: false // For text+voice questions
   },
   reason: {
     type: String,
