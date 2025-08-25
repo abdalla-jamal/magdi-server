@@ -5,7 +5,7 @@ const questionSchema = new mongoose.Schema({
   // type: نوع السؤال (text, mcq, checkbox, rating, radio, voice)
   type: {
     type: String,
-    enum: ["text", "mcq", "checkbox", "rating", "radio", "voice"],
+    enum: ["text", "mcq", "checkbox", "rating", "radio", "voice", "text+voice"],
     required: true,
   },
   questionText: {

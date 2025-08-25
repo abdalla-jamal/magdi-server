@@ -152,11 +152,35 @@ const submitResponse = async (req, res) => {
         }
       }
     }
-    // Only accept S3 URLs for voice answers
+    // Process answers for different question types
     answers = answers.map(ans => {
       if (!ans.questionId || !mongoose.Types.ObjectId.isValid(ans.questionId)) {
         throw new Error(`Invalid questionId format: ${ans.questionId}`);
       }
+      
+      // Handle text+voice questions
+      if (ans.type === 'text+voice') {
+        const hasText = ans.textAnswer && typeof ans.textAnswer === 'string' && ans.textAnswer.trim() !== '';
+        const hasVoice = ans.voiceAnswerUrl && typeof ans.voiceAnswerUrl === 'string' && ans.voiceAnswerUrl.startsWith('https://');
+        
+        // At least one must be provided
+        if (!hasText && !hasVoice) {
+          throw new Error(`For text+voice questions, either text or voice answer must be provided`);
+        }
+        
+        return {
+          questionId: ans.questionId,
+          textAnswer: hasText ? ans.textAnswer.trim() : undefined,
+          voiceAnswerUrl: hasVoice ? ans.voiceAnswerUrl : undefined,
+          answer: hasText ? ans.textAnswer.trim() : '', // Keep for backward compatibility
+          reason: ans.reason || undefined,
+          hasVoiceFile: hasVoice,
+          voiceUrl: hasVoice ? ans.voiceAnswerUrl : undefined,
+          type: ans.type
+        };
+      }
+      
+      // Handle regular voice answers
       const isVoiceAnswer = ans.type === 'voice' && typeof ans.answer === 'string' && ans.answer.startsWith('https://');
       return {
         questionId: ans.questionId,
