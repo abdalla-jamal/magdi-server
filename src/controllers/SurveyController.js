@@ -1,5 +1,6 @@
 const Survey = require("../models/SurveyModel");
-const Category = require("../models/CategoryModel");
+const Category = require("../models/categoryModel");
+const mongoose = require("mongoose");
 
 const createSurvey = async (req, res) => {
   try {
@@ -15,10 +16,15 @@ const createSurvey = async (req, res) => {
       return res.status(400).json({ error: 'Category is required.' });
     }
 
-    // Check if category exists
-    const category = await Category.findById(req.body.category);
-    if (!category || !category.isActive) {
-      return res.status(400).json({ error: 'Invalid or inactive category.' });
+    // Check if category ID is valid ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.body.category)) {
+      return res.status(400).json({ error: 'Invalid category ID format.' });
+    }
+
+    // Check if category exists in database
+    const categoryExists = await Category.findById(req.body.category);
+    if (!categoryExists) {
+      return res.status(400).json({ error: 'Category not found. Please select a valid category.' });
     }
 
     const survey = await Survey.create(req.body);

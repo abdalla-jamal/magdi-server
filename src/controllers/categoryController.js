@@ -1,38 +1,166 @@
-const Category = require('../models/CategoryModel');
+const Category = require('../models/categoryModel');
+const Survey = require('../models/SurveyModel');
+const mongoose = require('mongoose');
 
-// Get all categories
-const getAllCategories = async (req, res) => {
+/**
+ * @desc    Create a new category
+ * @route   POST /api/categories
+ * @access  Public (no auth middleware for now)
+ */
+const createCategory = async (req, res) => {
   try {
-    const categories = await Category.find({ isActive: true }).sort({ createdAt: -1 });
-    
-    res.status(200).json({
-      success: true,
-      data: categories
+    const { name, settings = {} } = req.body;
+
+    // Validate required fields
+    if (!name || typeof name !== 'string' || name.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Category name is required and must be a non-empty string'
+      });
+    }
+
+    // Validate settings if provided
+    if (settings && (typeof settings !== 'object' || Array.isArray(settings))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Settings must be a valid object'
+      });
+    }
+
+    // Create new category
+    const category = new Category({
+      name: name.trim(),
+      settings
     });
+
+    const savedCategory = await category.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Category created successfully',
+      data: savedCategory
+    });
+
   } catch (error) {
-    console.error('Error fetching categories:', error);
+    console.error('Error creating category:', error);
+
+    // Handle duplicate name error
+    if (error.code === 11000 || error.message.includes('unique')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category name already exists. Please choose a different name.'
+      });
+    }
+
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: messages
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch categories',
-      error: error.message
+      message: 'Internal server error while creating category',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// Get category by ID
-const getCategoryById = async (req, res) => {
+/**
+ * @desc    Get all categories
+ * @route   GET /api/categories
+ * @access  Public (no auth middleware for now)
+ */
+const getAllCategories = async (req, res) => {
   try {
-    const { id } = req.params;
-    
-    if (!id) {
+    const { page = 1, limit = 10, search } = req.query;
+
+    // Convert to numbers and validate
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+
+    if (pageNum < 1 || limitNum < 1) {
       return res.status(400).json({
         success: false,
-        message: 'Category ID is required'
+        message: 'Page and limit must be positive numbers'
       });
     }
 
-    const category = await Category.findById(id);
-    
+    // Build search filter
+    let filter = {};
+    if (search && search.trim()) {
+      filter.name = { $regex: search.trim(), $options: 'i' };
+    }
+
+    // Calculate skip value for pagination
+    const skip = (pageNum - 1) * limitNum;
+
+    // Get total count for pagination metadata
+    const totalCategories = await Category.countDocuments(filter);
+    const totalPages = Math.ceil(totalCategories / limitNum);
+
+    // Get paginated categories
+    const categories = await Category.find(filter)
+      .sort({ name: 1 }) // Sort alphabetically by name
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    // Prepare pagination metadata
+    const pagination = {
+      currentPage: pageNum,
+      totalPages,
+      totalCategories,
+      categoriesPerPage: limitNum,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1
+    };
+
+    res.status(200).json({
+      success: true,
+      message: 'Categories retrieved successfully',
+      data: categories,
+      pagination
+    });
+
+  } catch (error) {
+    console.error('Error getting categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while retrieving categories',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * @desc    Get one category by ID with related forms/surveys
+ * @route   GET /api/categories/:id
+ * @access  Public (no auth middleware for now)
+ */
+const getCategoryById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid category ID format'
+      });
+    }
+
+    // Find category and populate related surveys/forms
+    const category = await Category.findById(id).populate({
+      path: 'forms',
+      select: 'title description status createdAt updatedAt',
+      options: { sort: { createdAt: -1 } }
+    });
+
     if (!category) {
       return res.status(404).json({
         success: false,
@@ -40,139 +168,94 @@ const getCategoryById = async (req, res) => {
       });
     }
 
+    // Get count of related forms for summary
+    const formsCount = category.forms ? category.forms.length : 0;
+
     res.status(200).json({
       success: true,
-      data: category
-    });
-  } catch (error) {
-    console.error('Error fetching category:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch category',
-      error: error.message
-    });
-  }
-};
-
-// Create new category
-const createCategory = async (req, res) => {
-  try {
-    const { name, description, settings } = req.body;
-
-    // Validate required fields
-    if (!name || name.trim() === '') {
-      return res.status(400).json({
-        success: false,
-        message: 'Category name is required'
-      });
-    }
-
-    // Check if category with same name already exists
-    const existingCategory = await Category.findOne({ 
-      name: name.trim(),
-      isActive: true 
-    });
-
-    if (existingCategory) {
-      return res.status(400).json({
-        success: false,
-        message: 'Category with this name already exists'
-      });
-    }
-
-    // Prepare category data
-    const categoryData = {
-      name: name.trim(),
-      description: description ? description.trim() : '',
-      settings: {
-        nameRequired: settings?.nameRequired || false,
-        emailRequired: settings?.emailRequired || false,
-        allowAnonymous: settings?.allowAnonymous !== undefined ? settings.allowAnonymous : true
+      message: 'Category retrieved successfully',
+      data: {
+        ...category.toObject(),
+        formsCount
       }
-    };
-
-    const category = await Category.create(categoryData);
-
-    res.status(201).json({
-      success: true,
-      message: 'Category created successfully',
-      data: category
     });
-  } catch (error) {
-    console.error('Error creating category:', error);
-    
-    // Handle mongoose validation errors
-    if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: 'Validation error',
-        errors: validationErrors
-      });
-    }
 
+  } catch (error) {
+    console.error('Error getting category by ID:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to create category',
-      error: error.message
+      message: 'Internal server error while retrieving category',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// Update category
+/**
+ * @desc    Update a category (name + settings)
+ * @route   PATCH /api/categories/:id
+ * @access  Public (no auth middleware for now)
+ */
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, settings } = req.body;
+    const { name, settings } = req.body;
 
-    if (!id) {
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: 'Category ID is required'
+        message: 'Invalid category ID format'
       });
     }
 
-    // Check if category exists
-    const existingCategory = await Category.findById(id);
-    if (!existingCategory) {
+    // Find the category first
+    const category = await Category.findById(id);
+    if (!category) {
       return res.status(404).json({
         success: false,
         message: 'Category not found'
       });
     }
 
-    // If name is being updated, check for duplicates
-    if (name && name.trim() !== existingCategory.name) {
-      const duplicateCategory = await Category.findOne({ 
-        name: name.trim(),
-        isActive: true,
-        _id: { $ne: id }
-      });
+    // Validate and update fields
+    const updateData = {};
 
-      if (duplicateCategory) {
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.trim() === '') {
         return res.status(400).json({
           success: false,
-          message: 'Category with this name already exists'
+          message: 'Category name must be a non-empty string'
         });
       }
+      updateData.name = name.trim();
     }
 
-    // Prepare update data
-    const updateData = {};
-    if (name !== undefined) updateData.name = name.trim();
-    if (description !== undefined) updateData.description = description.trim();
     if (settings !== undefined) {
-      updateData.settings = {
-        nameRequired: settings.nameRequired !== undefined ? settings.nameRequired : existingCategory.settings.nameRequired,
-        emailRequired: settings.emailRequired !== undefined ? settings.emailRequired : existingCategory.settings.emailRequired,
-        allowAnonymous: settings.allowAnonymous !== undefined ? settings.allowAnonymous : existingCategory.settings.allowAnonymous
-      };
+      if (typeof settings !== 'object' || Array.isArray(settings)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Settings must be a valid object'
+        });
+      }
+      updateData.settings = settings;
     }
 
+    // Check if there's anything to update
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields provided for update'
+      });
+    }
+
+    // Update the category
     const updatedCategory = await Category.findByIdAndUpdate(
       id,
       updateData,
-      { new: true, runValidators: true }
+      { 
+        new: true, 
+        runValidators: true 
+      }
     );
 
     res.status(200).json({
@@ -180,39 +263,54 @@ const updateCategory = async (req, res) => {
       message: 'Category updated successfully',
       data: updatedCategory
     });
+
   } catch (error) {
     console.error('Error updating category:', error);
-    
+
+    // Handle duplicate name error
+    if (error.code === 11000 || error.message.includes('unique')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category name already exists. Please choose a different name.'
+      });
+    }
+
+    // Handle validation errors
     if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map(err => err.message);
+      const messages = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
         success: false,
         message: 'Validation error',
-        errors: validationErrors
+        errors: messages
       });
     }
 
     res.status(500).json({
       success: false,
-      message: 'Failed to update category',
-      error: error.message
+      message: 'Internal server error while updating category',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// Delete category (soft delete)
+/**
+ * @desc    Delete a category
+ * @route   DELETE /api/categories/:id
+ * @access  Public (no auth middleware for now)
+ */
 const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { force } = req.query;
 
-    if (!id) {
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: 'Category ID is required'
+        message: 'Invalid category ID format'
       });
     }
 
+    // Check if category exists
     const category = await Category.findById(id);
     if (!category) {
       return res.status(404).json({
@@ -221,48 +319,43 @@ const deleteCategory = async (req, res) => {
       });
     }
 
-    // If force delete is requested, permanently delete the category
-    if (force === 'true') {
-      await Category.findByIdAndDelete(id);
-      return res.status(200).json({
-        success: true,
-        message: 'Category permanently deleted'
+    // Check if category has related surveys/forms
+    const relatedSurveys = await Survey.countDocuments({ category: id });
+    if (relatedSurveys > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete category. It has ${relatedSurveys} related form(s). Please remove or reassign the forms first.`
       });
     }
 
-    // Soft delete by setting isActive to false
-    await Category.findByIdAndUpdate(id, { isActive: false });
+    // Delete the category
+    await Category.findByIdAndDelete(id);
 
     res.status(200).json({
       success: true,
-      message: 'Category deleted successfully'
+      message: 'Category deleted successfully',
+      data: {
+        deletedCategory: {
+          id: category._id,
+          name: category.name
+        }
+      }
     });
+
   } catch (error) {
     console.error('Error deleting category:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to delete category',
-      error: error.message
+      message: 'Internal server error while deleting category',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// Get category settings for validation
-const getCategorySettings = async (categoryId) => {
-  try {
-    const category = await Category.findById(categoryId);
-    return category ? category.settings : null;
-  } catch (error) {
-    console.error('Error fetching category settings:', error);
-    return null;
-  }
-};
-
 module.exports = {
+  createCategory,
   getAllCategories,
   getCategoryById,
-  createCategory,
   updateCategory,
-  deleteCategory,
-  getCategorySettings
+  deleteCategory
 };

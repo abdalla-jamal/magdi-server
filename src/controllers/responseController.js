@@ -1,6 +1,6 @@
 const Response = require('../models/response_model.js');
 const Survey = require('../models/SurveyModel');
-const Category = require('../models/CategoryModel');
+const Category = require('../models/categoryModel');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const dotenv = require('dotenv');
@@ -70,6 +70,7 @@ const uploadToS3 = async (req, res) => {
  */
 const submitResponse = async (req, res) => {
   try {
+    console.log('submitResponse called');
     let answers, surveyId, name, email;
     if (req.is('multipart/form-data')) {
       // Only parse fields, do not process files
@@ -106,22 +107,38 @@ const submitResponse = async (req, res) => {
     if (survey.status !== 'open') {
       return res.status(400).json({ error: 'Survey is not open for responses' });
     }
-    
-    // Validate name and email based on category settings
-    if (survey.category && survey.category.settings) {
-      const { nameRequired, emailRequired } = survey.category.settings;
+
+    // Get category information to check requirements
+    const category = await Category.findById(survey.category);
+    if (category && category.settings) {
+      // Check if email is required for this category
+      if (category.settings.emailRequired) {
+        if (!email || email.trim() === '') {
+          return res.status(400).json({ 
+            error: 'Email is required for this survey' 
+          });
+        }
+        
+        // Validate email format using standard regex
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) {
+          return res.status(400).json({ 
+            error: 'Please provide a valid email address' 
+          });
+        }
+      }
       
-      if (nameRequired && (!name || name.trim() === '')) {
+      // Check if name is required for this category
+      if (category.settings.nameRequired && (!name || name.trim() === '')) {
         return res.status(400).json({ 
-          error: 'Name is required for this survey category',
-          field: 'name'
+          error: `Name is required for ${category.name} surveys` 
         });
       }
       
-      if (emailRequired && (!email || email.trim() === '')) {
+      // Check if anonymous responses are not allowed
+      if (category.settings.allowAnonymous === false && (!name || !email)) {
         return res.status(400).json({ 
-          error: 'Email is required for this survey category',
-          field: 'email'
+          error: `Name and email are required for ${category.name} surveys` 
         });
       }
     }
@@ -136,31 +153,71 @@ const submitResponse = async (req, res) => {
         }
       }
     }
-    // Only accept S3 URLs for voice answers
+    // Process answers for different question types
     answers = answers.map(ans => {
       if (!ans.questionId || !mongoose.Types.ObjectId.isValid(ans.questionId)) {
         throw new Error(`Invalid questionId format: ${ans.questionId}`);
       }
-      const isVoiceAnswer = ans.type === 'voice' && typeof ans.answer === 'string' && ans.answer.startsWith('https://');
+      
+      // Handle text+voice questions
+      if (ans.type === 'text+voice') {
+        const hasText = ans.textAnswer && typeof ans.textAnswer === 'string' && ans.textAnswer.trim() !== '';
+        const hasVoice = ans.voiceAnswerUrl && typeof ans.voiceAnswerUrl === 'string' && ans.voiceAnswerUrl.startsWith('https://');
+        
+        // At least one must be provided
+        if (!hasText && !hasVoice) {
+          throw new Error(`For text+voice questions, either text or voice answer must be provided`);
+        }
+        
+        return {
+          questionId: ans.questionId,
+          textAnswer: hasText ? ans.textAnswer.trim() : undefined,
+          voiceAnswerUrl: hasVoice ? ans.voiceAnswerUrl : undefined,
+          answer: hasText ? ans.textAnswer.trim() : '', // Keep for backward compatibility
+          reason: ans.reason || undefined,
+          hasVoiceFile: hasVoice,
+          voiceUrl: hasVoice ? ans.voiceAnswerUrl : undefined,
+          type: ans.type
+        };
+      }
+      
+      // Handle regular voice answers
+      if (ans.type === 'voice') {
+        const isVoiceAnswer = typeof ans.answer === 'string' && ans.answer.startsWith('https://');
+        return {
+          questionId: ans.questionId,
+          answer: ans.answer,
+          reason: ans.reason || undefined,
+          hasVoiceFile: isVoiceAnswer,
+          voiceUrl: isVoiceAnswer ? ans.answer : undefined,
+          type: ans.type
+        };
+      }
+      
+      // Handle all other question types (text, radio, checkbox, rating, etc.)
       return {
         questionId: ans.questionId,
-        answer: ans.answer,
+        answer: ans.answer || null,
         reason: ans.reason || undefined,
-        hasVoiceFile: isVoiceAnswer,
-        voiceUrl: isVoiceAnswer ? ans.answer : undefined,
-        type: ans.type
+        hasVoiceFile: false,
+        voiceUrl: undefined,
+        type: ans.type || 'text'
       };
     });
+    
     const newResponse = new Response({
       surveyId,
       answers,
       name,
       email
     });
+    
     await newResponse.save();
+    
     res.status(201).json({ message: 'Response submitted successfully', response: newResponse });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to submit response', details: error.message });
+    console.error('Error in submitResponse:', error);
+    res.status(500).json({ error: 'Failed to submit response', details: error.message, stack: error.stack });
   }
 };
 
