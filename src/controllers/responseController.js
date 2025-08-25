@@ -71,6 +71,8 @@ const uploadToS3 = async (req, res) => {
 const submitResponse = async (req, res) => {
   try {
     console.log('submitResponse called');
+    console.log('Request body:', req.body);
+    console.log('Request headers:', req.headers);
     let answers, surveyId, name, email;
     if (req.is('multipart/form-data')) {
       // Only parse fields, do not process files
@@ -173,6 +175,7 @@ const submitResponse = async (req, res) => {
         }
       }
     }
+    console.log('Processing answers array:', answers);
     // Process answers for different question types
     answers = answers.map(ans => {
       if (!ans.questionId || !mongoose.Types.ObjectId.isValid(ans.questionId)) {
@@ -186,24 +189,39 @@ const submitResponse = async (req, res) => {
           textAnswer: ans.textAnswer,
           voiceAnswerUrl: ans.voiceAnswerUrl,
           textAnswerType: typeof ans.textAnswer,
-          voiceAnswerUrlType: typeof ans.voiceAnswerUrl
+          voiceAnswerUrlType: typeof ans.voiceAnswerUrl,
+          fullAnswer: ans
         });
         
-        const hasText = ans.textAnswer && typeof ans.textAnswer === 'string' && ans.textAnswer.trim() !== '';
+        // Check for text answer (either in textAnswer field or answer field)
+        const textFromTextAnswer = ans.textAnswer && typeof ans.textAnswer === 'string' && ans.textAnswer.trim() !== '';
+        const textFromAnswer = ans.answer && typeof ans.answer === 'string' && ans.answer.trim() !== '';
+        const hasText = textFromTextAnswer || textFromAnswer;
+        
+        // Check for voice answer
         const hasVoice = ans.voiceAnswerUrl && typeof ans.voiceAnswerUrl === 'string' && ans.voiceAnswerUrl.trim() !== '';
         
-        console.log('Validation results:', { hasText, hasVoice });
+        console.log('Validation results:', { 
+          hasText, 
+          hasVoice, 
+          textFromTextAnswer, 
+          textFromAnswer,
+          textValue: textFromTextAnswer ? ans.textAnswer : (textFromAnswer ? ans.answer : '')
+        });
         
         // At least one must be provided
         if (!hasText && !hasVoice) {
           throw new Error(`For text+voice questions, either text or voice answer must be provided`);
         }
         
+        // Get the actual text value
+        const textValue = textFromTextAnswer ? ans.textAnswer.trim() : (textFromAnswer ? ans.answer.trim() : '');
+        
         const result = {
           questionId: ans.questionId,
-          textAnswer: hasText ? ans.textAnswer.trim() : undefined,
+          textAnswer: hasText ? textValue : undefined,
           voiceAnswerUrl: hasVoice ? ans.voiceAnswerUrl : undefined,
-          answer: hasText ? ans.textAnswer.trim() : (hasVoice ? 'Voice Answer' : ''), // Keep for backward compatibility
+          answer: hasText ? textValue : (hasVoice ? 'Voice Answer' : ''), // Keep for backward compatibility
           reason: ans.reason || undefined,
           hasVoiceFile: hasVoice,
           voiceUrl: hasVoice ? ans.voiceAnswerUrl : undefined,
