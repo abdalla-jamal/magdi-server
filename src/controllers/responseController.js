@@ -161,15 +161,25 @@ const submitResponse = async (req, res) => {
       
       // Handle text+voice questions
       if (ans.type === 'text+voice') {
+        console.log('Processing text+voice answer:', {
+          questionId: ans.questionId,
+          textAnswer: ans.textAnswer,
+          voiceAnswerUrl: ans.voiceAnswerUrl,
+          textAnswerType: typeof ans.textAnswer,
+          voiceAnswerUrlType: typeof ans.voiceAnswerUrl
+        });
+        
         const hasText = ans.textAnswer && typeof ans.textAnswer === 'string' && ans.textAnswer.trim() !== '';
         const hasVoice = ans.voiceAnswerUrl && typeof ans.voiceAnswerUrl === 'string' && ans.voiceAnswerUrl.trim() !== '';
+        
+        console.log('Validation results:', { hasText, hasVoice });
         
         // At least one must be provided
         if (!hasText && !hasVoice) {
           throw new Error(`For text+voice questions, either text or voice answer must be provided`);
         }
         
-        return {
+        const result = {
           questionId: ans.questionId,
           textAnswer: hasText ? ans.textAnswer.trim() : undefined,
           voiceAnswerUrl: hasVoice ? ans.voiceAnswerUrl : undefined,
@@ -179,6 +189,9 @@ const submitResponse = async (req, res) => {
           voiceUrl: hasVoice ? ans.voiceAnswerUrl : undefined,
           type: ans.type
         };
+        
+        console.log('Processed text+voice result:', result);
+        return result;
       }
       
       // Handle regular voice answers
