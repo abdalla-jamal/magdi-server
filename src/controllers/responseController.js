@@ -161,7 +161,7 @@ const submitResponse = async (req, res) => {
       
       // Handle text+voice questions
       if (ans.type === 'text+voice') {
-        const hasText = ans.textAnswer && typeof ans.textAnswer === 'string' && ans.textAnswer.trim() == '';
+        const hasText = ans.textAnswer && typeof ans.textAnswer === 'string' && ans.textAnswer.trim() === 'text';
         const hasVoice = ans.voiceAnswerUrl && typeof ans.voiceAnswerUrl === 'string' && ans.voiceAnswerUrl.startsWith('https://');
         
         // At least one must be provided
