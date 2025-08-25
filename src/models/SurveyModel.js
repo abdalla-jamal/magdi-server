@@ -14,9 +14,16 @@ const questionSchema = new mongoose.Schema({
   },
   Option: [String],
   options: [String],
+  // Legacy field for backward compatibility
   requireReason: {
     type: Boolean,
     default: false,
+  },
+  // New field for choice-level reason requirements
+  choiceReasonSettings: {
+    type: Map,
+    of: Boolean,
+    default: new Map(),
   },
 });
 

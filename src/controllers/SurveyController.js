@@ -154,7 +154,8 @@ const getSurveyById = async (req, res) => {
       ...survey.toObject(),
       questions: survey.questions.map(q => ({
         ...q.toObject(),
-        requireReason: !!q.requireReason // تأكد من وجود خاصية requireReason
+        requireReason: !!q.requireReason, // Legacy field for backward compatibility
+        choiceReasonSettings: q.choiceReasonSettings || {} // New field for choice-level settings
       }))
     };
     
@@ -186,7 +187,8 @@ const getSurveyForResponse = async (req, res) => {
         type: q.type,
         questionText: q.questionText,
         options: q.options || q.Option || [],
-        requireReason: !!q.requireReason // إضافة خاصية requireReason
+        requireReason: !!q.requireReason, // Legacy field for backward compatibility
+        choiceReasonSettings: q.choiceReasonSettings || {} // New field for choice-level settings
       }))
     };
 

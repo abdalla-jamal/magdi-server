@@ -164,14 +164,48 @@ const submitResponse = async (req, res) => {
         });
       }
     }
-    // Validate reasons for answers if required by question
+    // Validate reasons for answers if required by question or specific choices
     const questionMap = {};
     survey.questions.forEach(q => { questionMap[q._id.toString()] = q; });
     for (const ans of answers) {
       const q = questionMap[ans.questionId];
-      if (q && q.requireReason && (q.type === 'radio' || q.type === 'checkbox')) {
-        if (!ans.reason || typeof ans.reason !== 'string' || ans.reason.trim() === '') {
-          return res.status(400).json({ error: `Reason is required for question: ${q.questionText}` });
+      if (q && (q.type === 'radio' || q.type === 'checkbox')) {
+        // Check legacy question-level requireReason
+        if (q.requireReason) {
+          if (!ans.reason || typeof ans.reason !== 'string' || ans.reason.trim() === '') {
+            return res.status(400).json({ error: `Reason is required for question: ${q.questionText}` });
+          }
+        }
+        
+        // Check choice-level reason requirements
+        if (q.choiceReasonSettings && typeof q.choiceReasonSettings === 'object') {
+          const selectedOptions = Array.isArray(ans.answer) ? ans.answer : [ans.answer];
+          const requiredReasons = [];
+          
+          for (const option of selectedOptions) {
+            if (q.choiceReasonSettings[option] === true) {
+              // For radio questions, check if reason is provided
+              if (q.type === 'radio') {
+                if (!ans.reason || typeof ans.reason !== 'string' || ans.reason.trim() === '') {
+                  requiredReasons.push(option);
+                }
+              } else if (q.type === 'checkbox') {
+                // For checkbox, check if reason is provided for this specific option
+                const reasonParts = ans.reason ? ans.reason.split(';') : [];
+                const optionIndex = selectedOptions.indexOf(option);
+                const optionReason = reasonParts[optionIndex] || '';
+                if (!optionReason.trim()) {
+                  requiredReasons.push(option);
+                }
+              }
+            }
+          }
+          
+          if (requiredReasons.length > 0) {
+            return res.status(400).json({ 
+              error: `Reason is required for the following choices in question "${q.questionText}": ${requiredReasons.join(', ')}` 
+            });
+          }
         }
       }
     }
