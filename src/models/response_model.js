@@ -8,7 +8,7 @@ const answerSchema = new mongoose.Schema({
   },
   answer: {
     type: mongoose.Schema.Types.Mixed, //  يقبل String أو Array أو Number
-    required: false // Made optional to support text+voice where either can be provided
+    default: null
   },
   textAnswer: {
     type: String,
@@ -29,6 +29,10 @@ const answerSchema = new mongoose.Schema({
   voiceUrl: {
     type: String,
     required: false
+  },
+  type: {
+    type: String,
+    required: false
   }
 }, { _id: false });
 
@@ -41,7 +45,12 @@ const responseSchema = new mongoose.Schema({
   answers: {
     type: [answerSchema],
     required: true,
-    validate: [arr => arr.length > 0, 'Answers array must not be empty']
+    validate: {
+      validator: function(arr) {
+        return arr && arr.length > 0;
+      },
+      message: 'Answers array must not be empty'
+    }
   },
   name: {
     type: String,

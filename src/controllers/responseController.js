@@ -70,6 +70,7 @@ const uploadToS3 = async (req, res) => {
  */
 const submitResponse = async (req, res) => {
   try {
+    console.log('submitResponse called');
     let answers, surveyId, name, email;
     if (req.is('multipart/form-data')) {
       // Only parse fields, do not process files
@@ -181,26 +182,42 @@ const submitResponse = async (req, res) => {
       }
       
       // Handle regular voice answers
-      const isVoiceAnswer = ans.type === 'voice' && typeof ans.answer === 'string' && ans.answer.startsWith('https://');
+      if (ans.type === 'voice') {
+        const isVoiceAnswer = typeof ans.answer === 'string' && ans.answer.startsWith('https://');
+        return {
+          questionId: ans.questionId,
+          answer: ans.answer,
+          reason: ans.reason || undefined,
+          hasVoiceFile: isVoiceAnswer,
+          voiceUrl: isVoiceAnswer ? ans.answer : undefined,
+          type: ans.type
+        };
+      }
+      
+      // Handle all other question types (text, radio, checkbox, rating, etc.)
       return {
         questionId: ans.questionId,
-        answer: ans.answer,
+        answer: ans.answer || null,
         reason: ans.reason || undefined,
-        hasVoiceFile: isVoiceAnswer,
-        voiceUrl: isVoiceAnswer ? ans.answer : undefined,
-        type: ans.type
+        hasVoiceFile: false,
+        voiceUrl: undefined,
+        type: ans.type || 'text'
       };
     });
+    
     const newResponse = new Response({
       surveyId,
       answers,
       name,
       email
     });
+    
     await newResponse.save();
+    
     res.status(201).json({ message: 'Response submitted successfully', response: newResponse });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to submit response', details: error.message });
+    console.error('Error in submitResponse:', error);
+    res.status(500).json({ error: 'Failed to submit response', details: error.message, stack: error.stack });
   }
 };
 
