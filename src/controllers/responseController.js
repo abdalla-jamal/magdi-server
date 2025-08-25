@@ -1,6 +1,6 @@
 const Response = require('../models/response_model.js');
 const Survey = require('../models/SurveyModel');
-const Category = require('../models/categoryModel');
+const Category = require('../models/CategoryModel');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const dotenv = require('dotenv');
@@ -161,7 +161,7 @@ const submitResponse = async (req, res) => {
       
       // Handle text+voice questions
       if (ans.type === 'text+voice') {
-        const hasText = ans.textAnswer && typeof ans.textAnswer === 'string' && ans.textAnswer.trim() !== '';
+        const hasText = ans.textAnswer && typeof ans.textAnswer === 'string' && ans.textAnswer.trim() == '';
         const hasVoice = ans.voiceAnswerUrl && typeof ans.voiceAnswerUrl === 'string' && ans.voiceAnswerUrl.startsWith('https://');
         
         // At least one must be provided

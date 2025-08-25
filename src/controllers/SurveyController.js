@@ -1,5 +1,5 @@
 const Survey = require("../models/SurveyModel");
-const Category = require("../models/categoryModel");
+const Category = require("../models/CategoryModel");
 const mongoose = require("mongoose");
 
 const createSurvey = async (req, res) => {
