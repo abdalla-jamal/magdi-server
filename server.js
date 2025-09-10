@@ -9,6 +9,7 @@ const adminRoutes = require('./src/routes/adminRoutes.js');
 const analyticsRoutes = require('./src/routes/analyticsRoutes.js');
 const voiceRoutes = require('./src/routes/voiceRoutes.js');
 const categoryRoutes = require('./src/routes/categoryRoutes.js');
+const shareRoutes = require('./src/routes/shareRoutes.js');
 dotenv.config();
 connectDB();
 const app = express();
@@ -71,5 +72,7 @@ app.use('/api/voices', voiceRoutes);
 
 // category routes
 app.use('/api/categories', categoryRoutes);
+// share routes
+app.use('/api/share', shareRoutes);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
