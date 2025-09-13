@@ -16,7 +16,7 @@ async function sendSurveyEmail({ toEmail, surveyLink }) {
 
   const resend = new Resend(apiKey);
 
-  const fromAddress = process.env.FROM_EMAIL || 'Survey App <onboarding@resend.dev>';
+  const fromAddress = process.env.FROM_EMAIL || 'onboarding@resend.dev'; // this is the email address that will be used to send the email
   const subject = 'You have been invited to fill out a survey';
   const text = `You have been invited to fill out a survey. Click the link: ${surveyLink}`;
   const html = `<p>You have been invited to fill out a survey.</p><p>Click the link: <a href="${surveyLink}" target="_blank" rel="noopener noreferrer">${surveyLink}</a></p>`;
